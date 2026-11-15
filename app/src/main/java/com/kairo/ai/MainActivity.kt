@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -52,12 +53,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 private data class ChatMessage(val text: String, val fromKairo: Boolean)
@@ -82,6 +90,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun speak(text: String) {
+        val containsTelugu = text.any { it in '\u0C00'..'\u0C7F' }
+        val locale = if (containsTelugu) Locale("te", "IN") else Locale.getDefault()
+        val availability = tts?.isLanguageAvailable(locale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+        if (availability >= TextToSpeech.LANG_AVAILABLE) {
+            tts?.language = locale
+        } else if (containsTelugu) {
+            tts?.language = Locale.getDefault()
+        }
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kairo-response")
     }
 
@@ -99,6 +115,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     val configStore = remember { ProviderConfigStore(context) }
     val memoryStore = remember { MemoryStore(context) }
     val conversationStore = remember { ConversationStore(context) }
+    val researchClient = remember { WebResearchClient(context) }
+    var researchApiKey by remember { mutableStateOf(researchClient.loadApiKey()) }
+    var screenReadStatus by remember { mutableStateOf("") }
     var providerConfigs by remember { mutableStateOf(configStore.loadAll()) }
     var providerConfig by remember { mutableStateOf(providerConfigs.firstOrNull()) }
     var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
@@ -118,12 +137,17 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
     var providerKey by remember { mutableStateOf(providerConfig?.apiKey ?: "") }
+    var providerTestResult by remember { mutableStateOf("") }
+    var isTestingProvider by remember { mutableStateOf(false) }
     var provider2Url by remember { mutableStateOf(providerConfigs.getOrNull(1)?.baseUrl ?: "") }
     var provider2Model by remember { mutableStateOf(providerConfigs.getOrNull(1)?.model ?: "") }
     var provider2Key by remember { mutableStateOf(providerConfigs.getOrNull(1)?.apiKey ?: "") }
     var provider3Url by remember { mutableStateOf(providerConfigs.getOrNull(2)?.baseUrl ?: "") }
     var provider3Model by remember { mutableStateOf(providerConfigs.getOrNull(2)?.model ?: "") }
     var provider3Key by remember { mutableStateOf(providerConfigs.getOrNull(2)?.apiKey ?: "") }
+    var provider4Url by remember { mutableStateOf(providerConfigs.getOrNull(3)?.baseUrl ?: "") }
+    var provider4Model by remember { mutableStateOf(providerConfigs.getOrNull(3)?.model ?: "") }
+    var provider4Key by remember { mutableStateOf(providerConfigs.getOrNull(3)?.apiKey ?: "") }
     var settingsError by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -138,6 +162,20 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     }
     var input by remember { mutableStateOf("") }
     var listeningError by remember { mutableStateOf("") }
+
+    val screenImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            screenReadStatus = "Reading selected screenshot…"
+            try {
+                val extracted = ScreenTextReader.extract(context, uri)
+                if (extracted.isBlank()) screenReadStatus = "No readable text found in that image."
+                else {
+                    input = "Please understand this screen content and help me with it:\n" + extracted.take(6000)
+                    screenReadStatus = "Text extracted. Review the message before sending."
+                }
+            } catch (error: Exception) { screenReadStatus = "Could not read image: " + (error.message ?: "unknown error") }
+        }
+    }
 
     val speechLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -229,6 +267,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text(listeningError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
                 }
 
+                if (screenReadStatus.isNotBlank()) Text(screenReadStatus, color = Color(0xFF9FB2D0), fontSize = 11.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth().background(Color(0xFF151F31), RoundedCornerShape(18.dp)).padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -258,6 +297,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
                     ) { Text("🎙", fontSize = 16.sp) }
+                    Button(onClick = { input = if (input.isBlank()) "Help me define requirements for: " else "Create a requirements brief for: " + input }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("REQ", fontSize = 9.sp) }
+                    Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
                     Button(
                         onClick = {
                             val prompt = input.trim()
@@ -315,17 +356,35 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     }
                                     memoryStore.autoLearn(prompt)
                                     memoryItems = memoryStore.all()
+                                    val taskProfile = KairoTaskPlanner.classify(prompt)
+                                    val aiPrompt = if (taskProfile.type == TaskType.REQUIREMENTS) KairoRequirementsAgent.enhance(prompt) else prompt
+                                    val liveResults = if (taskProfile.needsLiveData && researchApiKey.isNotBlank()) {
+                                        try { researchClient.search(prompt) } catch (error: Exception) {
+                                            messages.add(ChatMessage("Live research failed: " + (error.message ?: "search error"), true))
+                                            isThinking = false
+                                            return@launch
+                                        }
+                                    } else emptyList()
+                                    val researchContext = if (liveResults.isEmpty()) "" else buildString {
+                                        append("LIVE WEB RESEARCH RESULTS (retrieved now; use and cite these source URLs):\n")
+                                        liveResults.forEachIndexed { index, item ->
+                                            append((index + 1).toString() + ". " + item.title + "\n" + item.content + "\nSource: " + item.url + "\n\n")
+                                        }
+                                    }
                                     val kairoBrain = KairoBrain(
                                         localEngine = localEngine,
                                         providers = providerConfigs,
                                         preferLocal = localAiEnabled,
                                         localReady = localModelReady
                                     )
-                                    val recentConversation = messages.takeLast(8).joinToString("\n") { entry ->
+                                    val savedMemory = listOf(memoryStore.context(prompt), researchContext).filter { it.isNotBlank() }.joinToString("\n\n")
+                                    val history = messages.dropLast(1).takeLast(12).map {
+                                        ChatTurn(if (it.fromKairo) "assistant" else "user", it.text)
+                                    }
+                                    val recentConversation = messages.dropLast(1).takeLast(8).joinToString("\n") { entry ->
                                         (if (entry.fromKairo) "KAIRO: " else "User: ") + entry.text.take(1200)
                                     }
-                                    val assistantContext = buildString {
-                                        val savedMemory = memoryStore.context(prompt)
+                                    val localContext = buildString {
                                         if (savedMemory.isNotBlank()) append(savedMemory)
                                         if (recentConversation.isNotBlank()) {
                                             if (isNotEmpty()) append("\n\n")
@@ -333,11 +392,40 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                             append(recentConversation)
                                         }
                                     }
-                                    val answer = runCatching { kairoBrain.reply(prompt, assistantContext) }
-                                        .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
-                                    messages.add(ChatMessage(answer, true))
-                                    onSpeak(answer)
-                                    isThinking = false
+                                    messages.add(ChatMessage("", true))
+                                    val responseSlot = messages.lastIndex
+                                    val responseBuffer = StringBuilder()
+                                    try {
+                                        kairoBrain.replyStream(aiPrompt, history, savedMemory, localContext, liveResults.isNotEmpty()).collect { chunk ->
+                                            responseBuffer.append(chunk)
+                                            messages[responseSlot] = ChatMessage(responseBuffer.toString(), true)
+                                        }
+                                        if (responseBuffer.isBlank()) {
+                                            messages[responseSlot] = ChatMessage("The AI provider returned an empty response.", true)
+                                        } else if (liveResults.isNotEmpty()) {
+                                            messages[responseSlot] = ChatMessage(
+                                                ResearchPresentation.appendSources(responseBuffer.toString(), liveResults),
+                                                true
+                                            )
+                                        }
+                                    } catch (cancel: CancellationException) {
+                                        throw cancel
+                                    } catch (error: Exception) {
+                                        val note = "KAIRO: " + (error.message ?: "Something went wrong. Please try again.")
+                                        messages[responseSlot] = ChatMessage(
+                                            if (responseBuffer.isBlank()) note else responseBuffer.toString() + "\n\n[" + note + "]",
+                                            true
+                                        )
+                                    } finally {
+                                        // Streaming edits the existing response row, so messages.size
+                                        // does not change and the size-keyed autosave won't run.
+                                        // Persist the completed (or interrupted) response explicitly.
+                                        conversationStore.save(messages.map {
+                                            ConversationEntry(it.text, it.fromKairo)
+                                        })
+                                        isThinking = false
+                                    }
+                                    onSpeak(messages[responseSlot].text)
                                 }
                             }
                         },
@@ -349,7 +437,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     when {
                         localAiEnabled && localModelReady -> "VOICE INPUT IS USER-INITIATED • LOCAL AI"
                         providerConfigs.isNotEmpty() -> "VOICE INPUT IS USER-INITIATED • MULTI-PROVIDER CLOUD AI"
-                        else -> "VOICE INPUT IS USER-INITIATED • DEMO MODE"
+                        else -> "VOICE INPUT IS USER-INITIATED • AI NOT CONFIGURED"
                     },
                     color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp
                 )
@@ -369,12 +457,42 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text("KAIRO saves explicit memories and a limited recent chat history. Both are encrypted on this device. Recent chat context may be sent to whichever cloud provider answers your request.", fontSize = 11.sp)
                     TextButton(onClick = { showClearChatDialog = true; showSettings = false }) { Text("CLEAR CONVERSATION HISTORY", color = Color(0xFFFFB4AB)) }
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
+                    Text("LIVE WEB RESEARCH", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("Optional Tavily search key. KAIRO uses it for current-information questions; search results are sent to your selected AI provider for synthesis.", fontSize = 11.sp)
+                    OutlinedTextField(value = researchApiKey, onValueChange = { researchApiKey = it }, label = { Text("Tavily API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("KAIRO tries DeepSeek, Grok, then Claude. DeepSeek and Grok use Chat Completions; Claude uses its native Messages API. Enter each provider's current model ID and API key. Failover does not remove provider quotas or costs.", fontSize = 12.sp)
+                    Text("KAIRO rotates across configured providers and temporarily skips rate-limited or unhealthy endpoints. Add an OmniRoute instance you control as an OpenAI-compatible gateway; the gateway must already be hosted and connected to provider accounts. Routing does not create free quota or bypass provider limits.", fontSize = 12.sp)
                     Text("PRIMARY • DEEPSEEK", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.deepseek.com") }, singleLine = true)
                     OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, placeholder = { Text("deepseek-flash") }, singleLine = true)
                     OutlinedTextField(value = providerKey, onValueChange = { providerKey = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    TextButton(
+                        enabled = !isTestingProvider,
+                        onClick = {
+                            if (!providerUrl.trim().startsWith("https://") || providerModel.isBlank() || providerKey.isBlank()) {
+                                providerTestResult = "Add the DeepSeek HTTPS base URL, model ID, and API key first."
+                            } else {
+                                isTestingProvider = true
+                                providerTestResult = "Connecting directly to DeepSeek…"
+                                scope.launch {
+                                    try {
+                                        val testConfig = AIProviderConfig(providerUrl.trim(), providerModel.trim(), providerKey.trim())
+                                                                                val answer = StringBuilder()
+                                        StreamingProviderEngine(testConfig).stream(
+                                            listOf(ChatTurn("user", "Reply with exactly: KAIRO connected to DeepSeek.")),
+                                            ""
+                                        ).collect { chunk -> answer.append(chunk) }
+                                        providerTestResult = "SUCCESS - DeepSeek streaming is working: ${answer.toString().take(180)}"
+                                    } catch (error: Exception) {
+                                        providerTestResult = "FAILED — ${error.message ?: "Unknown connection error"}"
+                                    } finally {
+                                        isTestingProvider = false
+                                    }
+                                }
+                            }
+                        }
+                    ) { Text(if (isTestingProvider) "TESTING DEEPSEEK…" else "TEST DEEPSEEK CONNECTION", color = Color(0xFF70E9FF)) }
+                    if (providerTestResult.isNotBlank()) Text(providerTestResult, color = if (providerTestResult.startsWith("SUCCESS")) Color(0xFF72E6A5) else Color(0xFFFFD27A), fontSize = 11.sp)
                     Text("BACKUP 1 • GROK / xAI (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(value = provider2Url, onValueChange = { provider2Url = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.x.ai/v1") }, singleLine = true)
                     OutlinedTextField(value = provider2Model, onValueChange = { provider2Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
@@ -383,6 +501,11 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     OutlinedTextField(value = provider3Url, onValueChange = { provider3Url = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.anthropic.com") }, singleLine = true)
                     OutlinedTextField(value = provider3Model, onValueChange = { provider3Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
                     OutlinedTextField(value = provider3Key, onValueChange = { provider3Key = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    Text("BACKUP 3 • OMNIROUTE / CUSTOM GATEWAY (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("Use the HTTPS URL, model ID and gateway token from your own OmniRoute deployment. The URL should be its OpenAI-compatible API base (usually ending in /v1). KAIRO connects to it; it does not host the gateway.", fontSize = 11.sp)
+                    OutlinedTextField(value = provider4Url, onValueChange = { provider4Url = it; settingsError = "" }, label = { Text("Gateway base URL") }, placeholder = { Text("https://your-server.example/v1") }, singleLine = true)
+                    OutlinedTextField(value = provider4Model, onValueChange = { provider4Model = it; settingsError = "" }, label = { Text("Gateway model ID") }, placeholder = { Text("provider/model") }, singleLine = true)
+                    OutlinedTextField(value = provider4Key, onValueChange = { provider4Key = it; settingsError = "" }, label = { Text("Gateway API token") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     if (settingsError.isNotBlank()) Text(settingsError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
                     Text("The key is encrypted on this device using Android Keystore. Never paste it into GitHub or share it in chat.", fontSize = 11.sp)
                     Spacer(Modifier.height(8.dp))
@@ -449,7 +572,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     val entered = listOf(
                         Triple(providerUrl, providerModel, providerKey),
                         Triple(provider2Url, provider2Model, provider2Key),
-                        Triple(provider3Url, provider3Model, provider3Key)
+                        Triple(provider3Url, provider3Model, provider3Key),
+                        Triple(provider4Url, provider4Model, provider4Key)
                     )
                     val incomplete = entered.any { (url, model, key) ->
                         (url.isNotBlank() || model.isNotBlank() || key.isNotBlank()) &&
@@ -466,6 +590,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     else if (configs.isEmpty()) settingsError = "Enter at least one provider."
                     else runCatching { configStore.saveAll(configs) }
                         .onSuccess {
+                            researchClient.saveApiKey(researchApiKey)
                             providerConfigs = configs
                             providerConfig = configs.firstOrNull()
                             localAiEnabled = false
@@ -491,9 +616,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         provider3Url = ""
                         provider3Model = ""
                         provider3Key = ""
+                        provider4Url = ""
+                        provider4Model = ""
+                        provider4Key = ""
                         settingsError = ""
                         showSettings = false
-                    }) { Text("USE DEMO") }
+                    }) { Text("DISCONNECT CLOUD AI") }
                     TextButton(onClick = { showSettings = false }) { Text("CANCEL") }
                 }
             }
@@ -511,7 +639,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     val requested = pendingAppLaunch
                     pendingAppLaunch = null
                     if (requested != null) {
-                        val result = AppLauncher.open(context, requested)
+                        val result = if (KairoActionPolicy.mayExecute(KairoAction.OPEN_INSTALLED_APP, true)) AppLauncher.open(context, requested) else "KAIRO blocked an unapproved action."
                         messages.add(ChatMessage(result, true))
                         onSpeak(result)
                     }
@@ -604,7 +732,33 @@ private fun ChatBubble(message: ChatMessage) {
                 letterSpacing = 1.5.sp
             )
             Spacer(Modifier.height(5.dp))
-            Text(message.text, color = Color(0xFFEAF2FF), fontSize = 14.sp)
+            val uriHandler = LocalUriHandler.current
+            val linkedText = remember(message.text) {
+                buildAnnotatedString {
+                    val pattern = Regex("https://[^\\s)\\]}>]+")
+                    var cursor = 0
+                    pattern.findAll(message.text).forEach { match ->
+                        append(message.text.substring(cursor, match.range.first))
+                        val url = match.value.trimEnd('.', ',', ';')
+                        pushStringAnnotation(tag = "URL", annotation = url)
+                        withStyle(SpanStyle(color = Color(0xFF70E9FF), textDecoration = TextDecoration.Underline)) {
+                            append(match.value)
+                        }
+                        pop()
+                        cursor = match.range.last + 1
+                    }
+                    append(message.text.substring(cursor))
+                }
+            }
+            ClickableText(
+                text = linkedText,
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFEAF2FF), fontSize = 14.sp),
+                onClick = { offset ->
+                    linkedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
+                        runCatching { uriHandler.openUri(it.item) }
+                    }
+                }
+            )
         }
     }
 }

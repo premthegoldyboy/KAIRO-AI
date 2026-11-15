@@ -1,5 +1,6 @@
 package com.kairo.ai
 
+import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -10,19 +11,6 @@ interface AIEngine {
     suspend fun reply(message: String, memoryContext: String = ""): String
 }
 
-class DemoAIEngine : AIEngine {
-    override suspend fun reply(message: String, memoryContext: String): String {
-        val text = message.trim()
-        if (text.isBlank()) return "I'm listening. What would you like to do?"
-        return when {
-            text.contains("hello", true) || text.contains("hi", true) ->
-                "Hello! KAIRO systems are online. How can I help?"
-            text.contains("namaste", true) -> "Namaste! Ela unnaru? I'm ready to help."
-            else -> "I received: “$text”. Demo mode is active. Add a compatible AI provider in Settings to enable live AI."
-        }
-    }
-}
-
 /**
  * Provider adapter. DeepSeek and xAI use Chat Completions; Anthropic uses its
  * native Messages API so Claude does not depend on the compatibility layer.
@@ -30,17 +18,17 @@ class DemoAIEngine : AIEngine {
 class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
     override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            require(config.baseUrl.startsWith("https://")) { "Provider URL must use HTTPS." }
+            require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
             require(config.model.isNotBlank()) { "Enter a model name in KAIRO settings." }
             require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
             val systemPrompt = KairoPersonality.systemInstruction(memoryContext)
             val isAnthropic = config.protocol.equals("anthropic", ignoreCase = true)
-            val endpoint = if (isAnthropic) config.baseUrl.trimEnd('/') + "/v1/messages"
-                else config.baseUrl.trimEnd('/') + "/chat/completions"
+            val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, isAnthropic)
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = 6_000
-                readTimeout = 18_000
+                connectTimeout = 10_000
+                readTimeout = 60_000
+                doInput = true
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
                 if (isAnthropic) {
@@ -77,7 +65,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                     (0 until (blocks?.length() ?: 0)).mapNotNull { index ->
                         blocks?.optJSONObject(index)?.takeIf { it.optString("type") == "text" }
                             ?.optString("text")?.takeIf { it.isNotBlank() }
-                    }.joinToString("\\n")
+                    }.joinToString("\n")
                 } else JSONObject(body).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content").orEmpty()
                 answer.trim().takeIf { it.isNotBlank() } ?: "The AI provider returned an empty response."
@@ -96,9 +84,11 @@ class FailoverAIEngine(private val providers: List<AIProviderConfig>) : AIEngine
         for ((index, provider) in providers.withIndex()) {
             try {
                 return OpenAICompatibleEngine(provider).reply(message, memoryContext)
+            } catch (cancel: CancellationException) {
+                throw cancel
             } catch (error: Exception) {
                 val reason = error.message?.take(120) ?: "Unknown provider error"
-                failures += "${provider.model}: $reason"
+                failures += "${ProviderEndpoints.providerLabel(provider.baseUrl)} (${provider.model}): $reason"
                 if (index == providers.lastIndex) {
                     throw IllegalStateException(
                         "All ${providers.size} configured AI provider(s) are unavailable. " +

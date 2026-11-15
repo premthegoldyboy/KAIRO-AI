@@ -1,6 +1,11 @@
 package com.kairo.ai
 
-/** Adaptive, provider-independent coordinator for KAIRO's local and cloud brains. */
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+
+/** Routes between local inference and configured cloud providers. */
 class KairoBrain(
     private val localEngine: AIEngine,
     private val providers: List<AIProviderConfig>,
@@ -8,39 +13,90 @@ class KairoBrain(
     private val localReady: Boolean
 ) : AIEngine {
     override suspend fun reply(message: String, memoryContext: String): String {
-        val cloudEngine = providers.takeIf { it.isNotEmpty() }?.let(::FailoverAIEngine)
-        val plannedMessage = KairoTaskPlanner.prepare(message)
-        val complexity = KairoTaskPlanner.complexity(message)
-        // Use cloud for demanding multi-step work; keep simple requests local when selected.
-        val cloudFirst = cloudEngine != null && (!preferLocal || complexity >= 2)
+        val profile = KairoTaskPlanner.classify(message)
+        val planned = KairoTaskPlanner.prepare(message, profile)
+        val cloud = providers.takeIf { it.isNotEmpty() }?.let(::FailoverAIEngine)
+        val localActive = preferLocal && localReady
+        val cloudFirst = cloud != null && (!localActive || profile.preferCloud)
 
         if (cloudFirst) {
-            return try {
-                cloudEngine.reply(plannedMessage, memoryContext)
+            try {
+                return cloud!!.reply(planned, memoryContext)
+            } catch (cancel: CancellationException) {
+                throw cancel
             } catch (cloudError: Exception) {
-                if (!localReady) throw cloudError
-                runCatching { localEngine.reply(plannedMessage, memoryContext) }.getOrElse { throw cloudError }
+                if (!localActive) throw cloudError
+                return try { localEngine.reply(planned, memoryContext) }
+                catch (cancel: CancellationException) { throw cancel }
+                catch (_: Exception) { throw cloudError }
             }
         }
-        if (preferLocal && localReady) {
-            return try {
-                localEngine.reply(plannedMessage, memoryContext)
+        if (localActive) {
+            try {
+                return localEngine.reply(planned, memoryContext)
+            } catch (cancel: CancellationException) {
+                throw cancel
             } catch (localError: Exception) {
-                if (cloudEngine == null) throw IllegalStateException(
+                if (cloud == null) throw IllegalStateException(
                     "KAIRO's on-device brain couldn't answer: ${localError.message ?: "unknown error"}"
                 )
-                cloudEngine.reply(plannedMessage, memoryContext)
+                return cloud.reply(planned, memoryContext)
             }
         }
-        if (cloudEngine != null) {
-            return try {
-                cloudEngine.reply(plannedMessage, memoryContext)
-            } catch (cloudError: Exception) {
-                if (!localReady) throw cloudError
-                runCatching { localEngine.reply(plannedMessage, memoryContext) }.getOrElse { throw cloudError }
-            }
-        }
-        return DemoAIEngine().reply(plannedMessage, memoryContext)
+        return cloud?.reply(planned, memoryContext) ?: throw IllegalStateException("KAIRO has no active AI brain. Add a cloud provider in Settings or download and enable the on-device model.")
     }
 
+    /**
+     * Streams cloud tokens; local inference emits one complete chunk. Prior turns exclude the
+     * current message. localContext can include recent turns for local models that lack chat APIs.
+     */
+    fun replyStream(
+        message: String,
+        history: List<ChatTurn>,
+        memoryContext: String,
+        localContext: String = memoryContext,
+        liveDataAvailable: Boolean = false
+    ): Flow<String> = flow {
+        val profile = KairoTaskPlanner.classify(message)
+        val planned = KairoTaskPlanner.prepare(message, profile, liveDataAvailable)
+        val turns = ChatTurn.normalize(history + ChatTurn("user", planned))
+        val cloud = providers.takeIf { it.isNotEmpty() }?.let(::FailoverStreamingEngine)
+        val localActive = preferLocal && localReady
+        val cloudFirst = cloud != null && (!localActive || profile.preferCloud)
+
+        suspend fun emitLocal() {
+            val answer = localEngine.reply(planned, localContext)
+            emit(answer)
+        }
+
+        if (cloudFirst) {
+            var emitted = false
+            try {
+                cloud!!.stream(turns, memoryContext).collect { chunk ->
+                    emitted = true
+                    emit(chunk)
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (cloudError: Exception) {
+                if (emitted || !localActive) throw cloudError
+                emitLocal()
+            }
+        } else if (localActive) {
+            try {
+                emitLocal()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (localError: Exception) {
+                if (cloud == null) throw IllegalStateException(
+                    "KAIRO's on-device brain couldn't answer: ${localError.message ?: "unknown error"}"
+                )
+                cloud.stream(turns, memoryContext).collect { emit(it) }
+            }
+        } else if (cloud != null) {
+            cloud.stream(turns, memoryContext).collect { emit(it) }
+        } else {
+            throw IllegalStateException("KAIRO has no active AI brain. Add a cloud provider in Settings or download and enable the on-device model.")
+        }
+    }
 }
