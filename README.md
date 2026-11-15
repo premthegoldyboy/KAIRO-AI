@@ -14,6 +14,7 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 - Persistent encrypted recent conversation history, with a clear-history control.
 - Recent chat context and relevant saved memories supplied to the model.
 - Task planning prompts for build, debug, plan, compare, and explain requests.
+- Specialist-agent registry for software development, research, planning, analysis, tutoring, translation, requirements, and general assistance. These profiles use the selected AI engine; they are not separate hosted models.
 - Deterministic calculator and device date/time tools.
 - App launching only after the user confirms the requested action.
 - Telugu-English command recognition for selected memory skills.
@@ -22,6 +23,7 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 
 - Optional live web search is available through a user-configured Tavily key. It is disabled in LOCAL mode; cloud mode can retrieve dated source URLs for synthesis. Search quotas and availability depend on Tavily.
 - Cloud responses support streaming; local inference currently returns its completed response as one chunk.
+- Specialist roles are prompt-routed through the selected model; independent autonomous agents and cross-model collaboration are not implemented.
 - The local model's runtime performance and compatibility must be verified on a physical device.
 - Wake-word / always-listening detection is not implemented.
 - Memory auto-learning is deliberately narrow and should not be treated as a complete semantic memory system.
@@ -45,6 +47,7 @@ The project uses JDK 17, Gradle 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.0
 - AIEngine.kt — provider adapters and failover
 - KairoBrain.kt — adaptive local/cloud routing
 - KairoTaskPlanner.kt — task classification and planning prompts
+- KairoAgentRegistry.kt — specialist role definitions and task routing
 - KairoSkillRegistry.kt / KairoToolExecutor.kt — supported deterministic skills
 - MemoryStore.kt / ConversationStore.kt — encrypted local memory and chat history
 - .github/workflows/android.yml — automated debug APK build
