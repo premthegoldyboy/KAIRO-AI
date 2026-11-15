@@ -241,8 +241,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 isThinking = true
                                 scope.launch {
                                     val activeEngine: AIEngine = when {
-                                        providerConfig != null -> OpenAICompatibleEngine(providerConfig!!)
                                         localAiEnabled && localModelReady -> localEngine
+                                        providerConfig != null -> OpenAICompatibleEngine(providerConfig!!)
                                         else -> DemoAIEngine()
                                     }
                                     val answer = runCatching { activeEngine.reply(prompt) }
@@ -259,8 +259,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     when {
-                        providerConfig != null -> "VOICE INPUT IS USER-INITIATED • CLOUD AI"
                         localAiEnabled && localModelReady -> "VOICE INPUT IS USER-INITIATED • LOCAL AI"
+                        providerConfig != null -> "VOICE INPUT IS USER-INITIATED • CLOUD AI"
                         else -> "VOICE INPUT IS USER-INITIATED • DEMO MODE"
                     },
                     color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp
@@ -333,7 +333,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     if (!config.baseUrl.startsWith("https://")) settingsError = "Base URL must start with https://"
                     else if (config.model.isBlank() || config.apiKey.isBlank()) settingsError = "Please enter both model name and API key."
                     else runCatching { configStore.save(config) }
-                        .onSuccess { providerConfig = config; showSettings = false; settingsError = "" }
+                        .onSuccess { providerConfig = config; localAiEnabled = false; showSettings = false; settingsError = "" }
                         .onFailure { settingsError = "Could not save securely: " + (it.message ?: "Unknown error") }
                 }) { Text("SAVE SECURELY") }
             },
@@ -342,6 +342,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     TextButton(onClick = {
                         configStore.clear()
                         providerConfig = null
+                        localAiEnabled = false
                         providerUrl = ""
                         providerModel = ""
                         providerKey = ""
