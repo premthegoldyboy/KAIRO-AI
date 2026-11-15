@@ -18,9 +18,9 @@ object KairoSkillRegistry {
     )
     private val calculatePatterns = listOf(
         Regex("(?i)^(?:calculate|compute|solve)\\s+(.+)$"),
-        Regex("(?i)^what is\\s+([0-9().+*/%\\-\\s]+)\\??$")
+        Regex("(?i)^what is\\s+([0-9().+*/%^\\-\\s]+)\\??$")
     )
-    private val arithmeticOnly = Regex("^[0-9().+*/%\\-\\s]+$")
+    private val arithmeticOnly = Regex("^[0-9().+*/%^\\-\\s]+$")
     private val conversionPatterns = listOf(
         Regex("(?i)^(?:please\\s+)?(?:convert\\s+)?([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)\\s+(?:to|in|into)\\s+([a-z°/]+)[?!.]*$"),
         Regex("(?i)^how\\s+many\\s+([a-z°/]+)\\s+(?:is|are)\\s+([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)[?!.]*$"),
