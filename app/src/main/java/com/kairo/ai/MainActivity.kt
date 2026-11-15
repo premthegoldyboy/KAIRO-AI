@@ -84,6 +84,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun speak(text: String) {
+        val containsTelugu = text.any { it in '\u0C00'..'\u0C7F' }
+        val locale = if (containsTelugu) Locale("te", "IN") else Locale.getDefault()
+        val availability = tts?.isLanguageAvailable(locale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+        if (availability >= TextToSpeech.LANG_AVAILABLE) {
+            tts?.language = locale
+        } else if (containsTelugu) {
+            tts?.language = Locale.getDefault()
+        }
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kairo-response")
     }
 
