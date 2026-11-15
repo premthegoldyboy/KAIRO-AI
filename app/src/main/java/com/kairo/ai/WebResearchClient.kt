@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 data class ResearchResult(val title: String, val url: String, val content: String)
 
 /** Tavily-backed live search. The key is encrypted with an Android Keystore AES-GCM key. */
-class WebResearchClient(private val context: Context) {
+class WebResearchClient(private val context: Context) {\n    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }
     private val prefs = context.applicationContext.getSharedPreferences("kairo_research", Context.MODE_PRIVATE)
     private val alias = "kairo_research_key"
 
@@ -81,7 +81,7 @@ class WebResearchClient(private val context: Context) {
                 }
                 throw IllegalStateException(if (errorBody.isBlank()) detail else detail + " " + errorBody.take(180))
             }
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            val responseBytes = connection.inputStream.use { it.readNBytes(MAX_RESPONSE_BYTES + 1) }\n            require(responseBytes.size <= MAX_RESPONSE_BYTES) { "The search service returned an oversized response." }\n            val json = JSONObject(responseBytes.toString(Charsets.UTF_8))
             coroutineContext.ensureActive()
             val results = json.optJSONArray("results") ?: JSONArray()
             (0 until minOf(results.length(), 5)).mapNotNull { i ->
