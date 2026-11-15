@@ -368,6 +368,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                             true
                                         )
                                     } finally {
+                                        // Streaming edits the existing response row, so messages.size
+                                        // does not change and the size-keyed autosave won't run.
+                                        // Persist the completed (or interrupted) response explicitly.
+                                        conversationStore.save(messages.map {
+                                            ConversationEntry(it.text, it.fromKairo)
+                                        })
                                         isThinking = false
                                     }
                                     onSpeak(messages[responseSlot].text)
