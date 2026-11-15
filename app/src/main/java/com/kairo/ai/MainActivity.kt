@@ -254,7 +254,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     BasicTextField(
                         value = input,
                         onValueChange = { input = it; listeningError = "" },
-                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 12.dp),
+                        modifier = Modifier.weight(1f).heightIn(max = 112.dp)
+                            .padding(horizontal = 10.dp, vertical = 12.dp),
+                        maxLines = 4,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
                         decorationBox = { inner ->
                             if (input.isEmpty()) Text("Message KAIRO…", color = Color(0xFF71819B))
