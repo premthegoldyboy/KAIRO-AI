@@ -50,7 +50,7 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
         require(turns.isNotEmpty()) { "Nothing to send." }
 
         val anthropic = config.protocol.equals("anthropic", true)
-        val endpoint = config.baseUrl.trimEnd('/') + if (anthropic) "/v1/messages" else "/chat/completions"
+        val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, anthropic)
         val messages = JSONArray()
         if (!anthropic) messages.put(JSONObject().put("role", "system").put("content", KairoPersonality.systemInstruction(memoryContext)))
         turns.forEach { messages.put(JSONObject().put("role", it.role).put("content", it.content)) }
@@ -59,8 +59,9 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
 
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
-            connectTimeout = 6_000
-            readTimeout = 20_000
+            connectTimeout = 10_000
+            readTimeout = 60_000
+            doInput = true
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "text/event-stream")
@@ -150,7 +151,7 @@ class FailoverStreamingEngine(private val providers: List<AIProviderConfig>) : S
                 throw cancel
             } catch (error: Exception) {
                 if (emitted) throw error
-                failures += "${provider.model}: ${error.message?.take(160) ?: "unknown provider error"}"
+                failures += "${ProviderEndpoints.providerLabel(provider.baseUrl)} (${provider.model}): ${error.message?.take(160) ?: "unknown provider error"}"
             }
         }
         throw IllegalStateException("All ${providers.size} configured AI provider(s) are unavailable. " + failures.joinToString(" | "))
