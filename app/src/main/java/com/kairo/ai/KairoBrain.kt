@@ -41,7 +41,10 @@ class KairoBrain(
                 runCatching { localEngine.reply(plannedMessage, memoryContext) }.getOrElse { throw cloudError }
             }
         }
-        return DemoAIEngine().reply(plannedMessage, memoryContext)
+        if (localReady) return localEngine.reply(plannedMessage, memoryContext)
+        throw IllegalStateException(
+            "No AI engine is configured. Add a cloud provider in Settings or download and enable the on-device model."
+        )
     }
 
 }
