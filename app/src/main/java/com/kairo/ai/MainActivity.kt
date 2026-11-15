@@ -360,9 +360,10 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             Text("YOUR AI WORKSPACE", color = Color(0xFFEAF5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                             Text(
                                 when {
-                                    localAiEnabled && localModelReady -> "ON-DEVICE MODEL • ACTIVE"
-                                    providerConfigs.isNotEmpty() && !localAiEnabled -> "CLOUD AI • CONFIGURED"
-                                    else -> "AI SETUP REQUIRED"
+                                    localAiEnabled && localModelReady -> "ON-DEVICE MODEL • READY"
+                                    localAiEnabled -> "ON-DEVICE MODEL • DOWNLOAD REQUIRED"
+                                    providerConfigs.isNotEmpty() -> "CLOUD AI • CONFIGURED"
+                                    else -> "CLOUD AI • SETUP REQUIRED"
                                 },
                                 color = when {
                                     localAiEnabled && localModelReady -> Color(0xFF73E6B0)
@@ -620,7 +621,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     when {
-                        localAiEnabled && localModelReady -> "VOICE INPUT IS USER-INITIATED • LOCAL AI"
+                        localAiEnabled && localModelReady -> "VOICE INPUT IS USER-INITIATED • LOCAL AI READY"
+                        localAiEnabled -> "VOICE INPUT IS USER-INITIATED • LOCAL MODEL NOT DOWNLOADED"
                         providerConfigs.isNotEmpty() -> "VOICE INPUT IS USER-INITIATED • MULTI-PROVIDER CLOUD AI"
                         else -> "VOICE INPUT IS USER-INITIATED • AI NOT CONFIGURED"
                     },
