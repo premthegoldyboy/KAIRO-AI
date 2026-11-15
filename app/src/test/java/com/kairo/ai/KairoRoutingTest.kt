@@ -7,6 +7,21 @@ import org.junit.Test
 import kotlinx.coroutines.flow.collect
 
 class KairoRoutingTest {
+    @Test fun chatTurnNormalizationDropsLeadingAssistantAndMergesAdjacentRoles() {
+        assertEquals(
+            listOf(ChatTurn("user", "first\\n\\nsecond"), ChatTurn("assistant", "answer")),
+            ChatTurn.normalize(
+                listOf(
+                    ChatTurn("assistant", "orphan"),
+                    ChatTurn("user", "first"),
+                    ChatTurn("user", "second"),
+                    ChatTurn("system", "invalid"),
+                    ChatTurn("assistant", "answer")
+                )
+            )
+        )
+    }
+
     @Test fun providerRequestRejectsOversizedPromptAndContext() {
         try {
             validateProviderRequestSize("x".repeat(32_001), "")
