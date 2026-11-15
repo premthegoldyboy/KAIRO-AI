@@ -6,6 +6,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -15,14 +16,18 @@ object ScreenTextReader {
         val image = runCatching { InputImage.fromFilePath(context, uri) }
             .getOrElse { continuation.resumeWithException(it); return@suspendCancellableCoroutine }
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        val closed = AtomicBoolean(false)
+        fun closeRecognizer() {
+            if (closed.compareAndSet(false, true)) runCatching { recognizer.close() }
+        }
+        continuation.invokeOnCancellation { closeRecognizer() }
         recognizer.process(image)
             .addOnSuccessListener { result ->
-                val text = result.text.trim()
-                recognizer.close()
-                if (continuation.isActive) continuation.resume(text)
+                closeRecognizer()
+                if (continuation.isActive) continuation.resume(result.text.trim())
             }
             .addOnFailureListener { error ->
-                recognizer.close()
+                closeRecognizer()
                 if (continuation.isActive) continuation.resumeWithException(error)
             }
     }

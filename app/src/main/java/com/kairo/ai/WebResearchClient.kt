@@ -8,6 +8,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URI
+import java.net.SocketTimeoutException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -51,25 +56,47 @@ class WebResearchClient(private val context: Context) {
         require(key.isNotBlank()) { "Add a Tavily search API key in Settings to enable live research." }
         require(query.isNotBlank() && query.length <= 500) { "Enter a shorter research question." }
         val connection = (URL("https://api.tavily.com/search").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; connectTimeout = 10_000; readTimeout = 20_000
+            requestMethod = "POST"; connectTimeout = 8_000; readTimeout = 15_000
+            doInput = true
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
         }
         try {
             val body = JSONObject().put("api_key", key).put("query", query)
                 .put("search_depth", "basic").put("max_results", 5)
                 .put("include_answer", false).toString()
             connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            coroutineContext.ensureActive()
             val status = connection.responseCode
-            if (status !in 200..299) throw IllegalStateException("Live search failed (HTTP $status). Check the search key and service quota.")
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            val results = json.optJSONArray("results") ?: JSONArray()
-            (0 until results.length()).mapNotNull { i ->
-                val item = results.optJSONObject(i) ?: return@mapNotNull null
-                val url = item.optString("url")
-                if (!url.startsWith("https://")) return@mapNotNull null
-                ResearchResult(item.optString("title").take(180), url, item.optString("content").take(1200))
+            if (status !in 200..299) {
+                val errorBody = runCatching {
+                    (connection.errorStream ?: connection.inputStream).bufferedReader().use { it.readText() }
+                }.getOrDefault("")
+                val detail = when (status) {
+                    401, 403 -> "The search key was rejected. Check the Tavily key."
+                    429 -> "The search service rate limit or quota was reached."
+                    400 -> "The search request was rejected. Try a shorter question."
+                    else -> "The search service returned HTTP $status."
+                }
+                throw IllegalStateException(if (errorBody.isBlank()) detail else detail + " " + errorBody.take(180))
             }
+            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            coroutineContext.ensureActive()
+            val results = json.optJSONArray("results") ?: JSONArray()
+            (0 until minOf(results.length(), 5)).mapNotNull { i ->
+                val item = results.optJSONObject(i) ?: return@mapNotNull null
+                val safeUrl = ResearchPresentation.safeHttpsUrl(item.optString("url")) ?: return@mapNotNull null
+                ResearchResult(
+                    item.optString("title").ifBlank { "Untitled source" }.take(180),
+                    safeUrl,
+                    item.optString("content").take(1200)
+                )
+            }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (timeout: SocketTimeoutException) {
+            throw IllegalStateException("Live search timed out. Check your connection and try again.", timeout)
         } finally { connection.disconnect() }
     }
 
