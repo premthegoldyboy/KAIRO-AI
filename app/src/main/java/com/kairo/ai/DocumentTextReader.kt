@@ -17,7 +17,7 @@ data class ImportedTextDocument(val name: String, val text: String)
  * It never scans storage or attempts to execute imported content.
  */
 object DocumentTextReader {
-    const val MAX_DOCUMENT_BYTES = 96 * 1024
+    const val MAX_DOCUMENT_BYTES = 24 * 1024
 
     private val supportedExtensions = setOf(
         "txt", "md", "markdown", "csv", "json", "xml", "html", "htm",
@@ -38,7 +38,7 @@ object DocumentTextReader {
     }
 
     internal fun decodeText(bytes: ByteArray): String {
-        require(bytes.size <= MAX_DOCUMENT_BYTES) { "The selected document is larger than 96 KB." }
+        require(bytes.size <= MAX_DOCUMENT_BYTES) { "The selected document is larger than 24 KB." }
         val decoded = Charsets.UTF_8.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT)
             .onUnmappableCharacter(CodingErrorAction.REPORT)
@@ -75,7 +75,7 @@ object DocumentTextReader {
             val count = input.read(buffer)
             if (count < 0) break
             require(output.size() + count <= MAX_DOCUMENT_BYTES) {
-                "The selected document is larger than 96 KB. Choose a smaller text file."
+                "The selected document is larger than 24 KB. Choose a smaller text file."
             }
             output.write(buffer, 0, count)
         }
