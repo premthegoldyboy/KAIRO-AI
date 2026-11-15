@@ -21,6 +21,7 @@ object KairoSkillRegistry {
         Regex("(?i)^what is\\s+([0-9().+*/%\\-\\s]+)\\??$")
     )
     private val arithmeticOnly = Regex("^[0-9().+*/%\\-\\s]+$")
+    private val percentOfPattern = Regex("(?i)^(?:what is\\s+)?([0-9]+(?:\\.[0-9]+)?)\\s*%\\s+of\\s+([0-9]+(?:\\.[0-9]+)?)\\??$")
     private val vagueForgetTargets = setOf("it","that","this","about it","about that","nothing","everything","all","them","those","what i said","my last message")
     private val clearAllPhrases = setOf("forget all memories","clear all memories","delete all memories","anni memories marchipo","na memories anni marchipo")
     private val recallPhrases = setOf("show memories","list memories","na gurinchi em gurthundi","naaku em gurthundi","em gurthupettukunnav")
@@ -56,6 +57,11 @@ object KairoSkillRegistry {
             return KairoSkillRequest(KairoSkillType.GENERAL)
         }
         if (lower.contains("what do you remember") || normalized in recallPhrases) return KairoSkillRequest(KairoSkillType.RECALL)
+        percentOfPattern.matchEntire(text)?.let {
+            val percent = it.groupValues[1]
+            val amount = it.groupValues[2]
+            return KairoSkillRequest(KairoSkillType.CALCULATE, "($percent/100)*$amount")
+        }
         calculatePatterns.firstNotNullOfOrNull { it.find(text) }?.let {
             val expression = it.groupValues[1].trim().removeSuffix("?").trim()
             if (expression.isNotEmpty() && arithmeticOnly.matches(expression)) return KairoSkillRequest(KairoSkillType.CALCULATE, expression)

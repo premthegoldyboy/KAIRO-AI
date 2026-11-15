@@ -1,6 +1,7 @@
 package com.kairo.ai
 
 import java.math.BigDecimal
+import java.math.MathContext
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -10,7 +11,7 @@ object KairoToolExecutor {
     fun execute(request: KairoSkillRequest): String? = when (request.type) {
         KairoSkillType.CALCULATE -> runCatching {
             val value = ArithmeticParser(request.argument).parse()
-            "The answer is ${BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()}."
+            "The answer is ${value.stripTrailingZeros().toPlainString()}."
         }.getOrElse { "I couldn't calculate that: ${it.message ?: "invalid expression"}." }
         KairoSkillType.CURRENT_TIME -> {
             val now = ZonedDateTime.now()
@@ -23,52 +24,52 @@ object KairoToolExecutor {
     private class ArithmeticParser(private val source: String) {
         private var index = 0
 
-        fun parse(): Double {
+        fun parse(): BigDecimal {
             require(source.isNotBlank() && source.length <= 100) { "enter a short arithmetic expression" }
             val result = expression()
             skipSpaces()
             require(index == source.length) { "unexpected character at position ${index + 1}" }
-            require(result.isFinite()) { "result is outside the supported range" }
+            require(result.precision() <= 128 && result.scale() <= 128) { "result is outside the supported range" }
             return result
         }
 
-        private fun expression(): Double {
+        private fun expression(): BigDecimal {
             var value = term()
             while (true) {
                 skipSpaces()
                 value = when {
-                    consume('+') -> value + term()
-                    consume('-') -> value - term()
+                    consume('+') -> value.add(term(), MathContext.DECIMAL128)
+                    consume('-') -> value.subtract(term(), MathContext.DECIMAL128)
                     else -> return value
                 }
             }
         }
 
-        private fun term(): Double {
+        private fun term(): BigDecimal {
             var value = factor()
             while (true) {
                 skipSpaces()
                 value = when {
-                    consume('*') -> value * factor()
+                    consume('*') -> value.multiply(factor(), MathContext.DECIMAL128)
                     consume('/') -> {
                         val divisor = factor()
-                        require(divisor != 0.0) { "division by zero is not allowed" }
-                        value / divisor
+                        require(divisor.compareTo(BigDecimal.ZERO) != 0) { "division by zero is not allowed" }
+                        value.divide(divisor, MathContext.DECIMAL128)
                     }
                     consume('%') -> {
                         val divisor = factor()
-                        require(divisor != 0.0) { "division by zero is not allowed" }
-                        value % divisor
+                        require(divisor.compareTo(BigDecimal.ZERO) != 0) { "division by zero is not allowed" }
+                        value.remainder(divisor, MathContext.DECIMAL128)
                     }
                     else -> return value
                 }
             }
         }
 
-        private fun factor(): Double {
+        private fun factor(): BigDecimal {
             skipSpaces()
             if (consume('+')) return factor()
-            if (consume('-')) return -factor()
+            if (consume('-')) return factor().negate()
             if (consume('(')) {
                 val nested = expression()
                 skipSpaces()
@@ -82,7 +83,7 @@ object KairoToolExecutor {
                 index++
             }
             require(index > start && dots <= 1) { "expected a number" }
-            return source.substring(start, index).toDoubleOrNull()
+            return source.substring(start, index).toBigDecimalOrNull()
                 ?: throw IllegalArgumentException("invalid number")
         }
 
