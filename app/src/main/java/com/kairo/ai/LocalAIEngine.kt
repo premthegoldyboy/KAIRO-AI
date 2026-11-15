@@ -136,6 +136,16 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
         output.toString().trim().ifBlank { "The local model returned an empty response." }
     }
 
+    suspend fun resetConversation() = withContext(dispatcher) {
+        check(!closed) { "Local AI engine is closed." }
+        runCatching { conversation?.close() }
+        conversation = engine?.createConversation(
+            ConversationConfig(
+                systemInstruction = Contents.of(KairoPersonality.systemInstruction())
+            )
+        )
+    }
+
     override fun close() {
         if (closed) return
         closed = true
