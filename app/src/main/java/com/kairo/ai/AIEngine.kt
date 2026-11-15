@@ -39,8 +39,8 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                 else config.baseUrl.trimEnd('/') + "/chat/completions"
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = 12_000
-                readTimeout = 60_000
+                connectTimeout = 6_000
+                readTimeout = 18_000
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
                 if (isAnthropic) {
