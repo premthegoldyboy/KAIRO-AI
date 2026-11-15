@@ -698,6 +698,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     messages.clear()
                     messages.add(ChatMessage("KAIRO core initialized. I'm ready when you are.", true))
                     conversationStore.clear()
+                    scope.launch { runCatching { localEngine.resetConversation() } }
                     showClearChatDialog = false
                 }) { Text("CLEAR HISTORY") }
             },
