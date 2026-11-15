@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -144,6 +145,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var showClearChatDialog by remember { mutableStateOf(false) }
     var pendingAppLaunch by remember { mutableStateOf<String?>(null) }
     var memoryItems by remember { mutableStateOf(memoryStore.all()) }
+    val memoryLearningPrefs = remember {
+        context.getSharedPreferences("kairo_memory_learning", android.content.Context.MODE_PRIVATE)
+    }
+    var autoLearnEnabled by remember {
+        mutableStateOf(memoryLearningPrefs.getBoolean("enabled", false))
+    }
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
     var providerKey by remember { mutableStateOf(providerConfig?.apiKey ?: "") }
@@ -477,7 +484,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         isThinking = false
                                         return@launch
                                     }
-                                    memoryStore.autoLearn(prompt)
+                                    if (autoLearnEnabled) memoryStore.autoLearn(prompt)
                                     memoryItems = memoryStore.all()
                                     val taskProfile = KairoTaskPlanner.classify(prompt)
                                     val aiPrompt = if (taskProfile.type == TaskType.REQUIREMENTS) KairoRequirementsAgent.enhance(prompt) else prompt
@@ -588,6 +595,22 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 ) {
                     Text("MEMORY", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("KAIRO saves explicit memories and a limited recent chat history. Both are encrypted on this device. Recent chat context may be sent to whichever cloud provider answers your request.", fontSize = 11.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("AUTOMATIC PREFERENCE LEARNING", color = Color(0xFFEAF2FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Off by default. When enabled, KAIRO may save simple preferences you state. Explicit Remember commands always work.", color = Color(0xFF9FB2D0), fontSize = 10.sp)
+                        }
+                        Switch(
+                            checked = autoLearnEnabled,
+                            onCheckedChange = { enabled ->
+                                autoLearnEnabled = enabled
+                                memoryLearningPrefs.edit().putBoolean("enabled", enabled).apply()
+                            }
+                        )
+                    }
                     TextButton(onClick = { showClearChatDialog = true; showSettings = false }) { Text("CLEAR CONVERSATION HISTORY", color = Color(0xFFFFB4AB)) }
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
                     Text("LIVE WEB RESEARCH", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
