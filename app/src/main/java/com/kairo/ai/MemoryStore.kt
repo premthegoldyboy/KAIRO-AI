@@ -52,28 +52,40 @@ class MemoryStore(context: Context) {
         ?.joinToString("\n", prefix = "Relevant saved memories about the user (use only when relevant):\n") { "- $it" }
         .orEmpty()
 
-    /** Answer a small set of explicit personal-fact questions from saved memory, never by guessing. */
+    /** Answer known personal facts directly from device memory. */
     fun answerPersonalFact(message: String): String? {
-        val asksFavouriteColour = Regex(
-            "(?i)\\b(?:what(?:'s| is)|do you know)\\s+my\\s+(?:favou?rite)\\s+colou?r\\b"
-        ).containsMatchIn(message)
-        if (!asksFavouriteColour) return null
-        val saved = all().firstOrNull { it.startsWith("Favourite colour:", ignoreCase = true) }
-        return if (saved != null) {
-            "Your favourite colour is ${saved.substringAfter(':').trim()}."
-        } else {
-            "You haven't told me your favourite colour yet. Tell me, for example, “My favourite colour is blue”, and I'll remember it."
+        val nameQuestion = Regex("(?i)\\b(?:what(?:'s| is)\\s+my\\s+name|who\\s+am\\s+i)\\b").containsMatchIn(message)
+        if (nameQuestion) {
+            val saved = all().firstOrNull { it.startsWith("Name:", ignoreCase = true) }
+            return saved?.let { "You're ${it.substringAfter(':').trim()}." }
+                ?: "You haven't told me your name yet. Tell me “I'm Prem” and I'll remember it."
         }
+        val colourQuestion = Regex("(?i)\\b(?:what(?:'s| is)|do you know)\\s+my\\s+(?:favou?rite)\\s+colou?r\\b").containsMatchIn(message)
+        if (colourQuestion) {
+            val saved = all().firstOrNull { it.startsWith("Favourite colour:", ignoreCase = true) }
+            return saved?.let { "Your favourite colour is ${it.substringAfter(':').trim()}." }
+                ?: "You haven't told me your favourite colour yet. Tell me “I like blue colour” and I'll remember it."
+        }
+        return null
     }
 
-    /** Only explicit low-risk preference wording is eligible for automatic memory. */
+    /** Learn only explicit, low-risk facts and preferences stated by the user. */
     fun autoLearn(message: String): String? {
-        val colour = Regex("(?i)\\bmy\\s+favou?rite\\s+colou?r\\s+is\\s+([^.!?]{3,40})").find(message)
-        if (colour != null) {
-            val value = colour.groupValues[1].trim()
+        val name = Regex("(?i)^(?:hi[, ]+)?(?:i am|i'm|my name is)\\s+([A-Za-z][A-Za-z '-]{1,35})[.! ]*$").find(message.trim())
+        if (name != null) {
+            val value = name.groupValues[1].trim().trimEnd('.')
+            val memory = "Name: $value"
+            return if (remember(memory)) memory else null
+        }
+
+        val favouriteColour = Regex("(?i)\\bmy\\s+favou?rite\\s+colou?r\\s+is\\s+([A-Za-z -]{3,30})").find(message)
+            ?: Regex("(?i)\\bi\\s+like\\s+([A-Za-z -]{3,25}?)\\s+colou?r\\b").find(message)
+        if (favouriteColour != null) {
+            val value = favouriteColour.groupValues[1].trim().trimEnd()
             val memory = "Favourite colour: $value"
             return if (remember(memory)) memory else null
         }
+
         val patterns = listOf(
             Regex("(?i)\\bI prefer ([^.!?]{3,100})"),
             Regex("(?i)\\bI like ([^.!?]{3,100})"),
