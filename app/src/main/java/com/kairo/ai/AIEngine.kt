@@ -15,7 +15,20 @@ interface AIEngine {
  * Provider adapter. DeepSeek and xAI use Chat Completions; Anthropic uses its
  * native Messages API so Claude does not depend on the compatibility layer.
  */
-class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {\n    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }\n\n    private fun readBounded(input: java.io.InputStream, limit: Int): ByteArray {\n        val output = java.io.ByteArrayOutputStream()\n        val buffer = ByteArray(8192)\n        while (true) {\n            val count = input.read(buffer)\n            if (count < 0) break\n            require(output.size() + count <= limit) { "Provider response was too large." }\n            output.write(buffer, 0, count)\n        }\n        return output.toByteArray()\n    }
+class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
+    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }
+
+    private fun readBounded(input: java.io.InputStream, limit: Int): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size() + count <= limit) { "Provider response was too large." }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
     override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
@@ -51,7 +64,11 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {\
                 connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                val body = stream?.use { input ->\n                    val bytes = readBounded(input, MAX_RESPONSE_BYTES)\n                    require(bytes.size <= MAX_RESPONSE_BYTES) { "Provider response was too large." }\n                    bytes.toString(Charsets.UTF_8)\n                }.orEmpty()
+                val body = stream?.use { input ->
+                    val bytes = readBounded(input, MAX_RESPONSE_BYTES)
+                    require(bytes.size <= MAX_RESPONSE_BYTES) { "Provider response was too large." }
+                    bytes.toString(Charsets.UTF_8)
+                }.orEmpty()
                 if (status !in 200..299) {
                     val detail = runCatching {
                         val json = JSONObject(body)
@@ -65,7 +82,8 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {\
                     (0 until (blocks?.length() ?: 0)).mapNotNull { index ->
                         blocks?.optJSONObject(index)?.takeIf { it.optString("type") == "text" }
                             ?.optString("text")?.takeIf { it.isNotBlank() }
-                    }.joinToString("\n")
+                    }.joinToString("
+")
                 } else JSONObject(body).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content").orEmpty()
                 answer.trim().takeIf { it.isNotBlank() } ?: "The AI provider returned an empty response."
