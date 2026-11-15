@@ -28,6 +28,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,6 +50,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -89,7 +93,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 @Composable
 private fun KairoApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
-    val engine = remember { DemoAIEngine() }
+    val configStore = remember { ProviderConfigStore(context) }
+    var providerConfig by remember { mutableStateOf(configStore.load()) }
+    var showSettings by remember { mutableStateOf(false) }
+    var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
+    var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
+    var providerKey by remember { mutableStateOf(providerConfig?.apiKey ?: "") }
+    var settingsError by remember { mutableStateOf("") }
+    var isThinking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val scope = rememberCoroutineScope()
     var isThinking by remember { mutableStateOf(false) }
     val messages = remember {
@@ -142,7 +154,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         Text("K A I R O", color = Color(0xFF70E9FF), fontSize = 25.sp, fontWeight = FontWeight.Black)
                         Text("SOVEREIGN INTELLIGENCE", color = Color(0xFF8195B5), fontSize = 10.sp, letterSpacing = 2.sp)
                     }
-                    Text("● ONLINE", color = Color(0xFF6BE7B0), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { showSettings = true }) {
+                        Text("⚙ SETTINGS", color = Color(0xFF70E9FF), fontSize = 10.sp)
+                    }
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -219,8 +233,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 input = ""
                                 isThinking = true
                                 scope.launch {
-                                    val answer = runCatching { engine.reply(prompt) }
-                                        .getOrElse { "Something went wrong. Please try again." }
+                                    val activeEngine: AIEngine = providerConfig?.let { OpenAICompatibleEngine(it) } ?: DemoAIEngine()
+                                    val answer = runCatching { activeEngine.reply(prompt) }
+                                        .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
                                     messages.add(ChatMessage(answer, true))
                                     onSpeak(answer)
                                     isThinking = false
@@ -231,10 +246,55 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     ) { Text(if (isThinking) "..." else "SEND", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("VOICE INPUT IS USER-INITIATED • DEMO AI MODE", color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp)
+                Text(
+                    if (providerConfig == null) "VOICE INPUT IS USER-INITIATED • DEMO MODE"
+                    else "VOICE INPUT IS USER-INITIATED • CLOUD AI",
+                    color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp
+                )
             }
         }
     }
+    if (showSettings) {
+        AlertDialog(
+            onDismissRequest = { showSettings = false },
+            title = { Text("AI PROVIDER SETTINGS") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Configure an OpenAI-compatible service. Enter its HTTPS base URL, model name and API key.", fontSize = 12.sp)
+                    OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
+                    OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
+                    OutlinedTextField(value = providerKey, onValueChange = { providerKey = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    if (settingsError.isNotBlank()) Text(settingsError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
+                    Text("The key is encrypted on this device using Android Keystore. Never paste it into GitHub or share it in chat.", fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val config = AIProviderConfig(providerUrl.trim(), providerModel.trim(), providerKey.trim())
+                    if (!config.baseUrl.startsWith("https://")) settingsError = "Base URL must start with https://"
+                    else if (config.model.isBlank() || config.apiKey.isBlank()) settingsError = "Please enter both model name and API key."
+                    else runCatching { configStore.save(config) }
+                        .onSuccess { providerConfig = config; showSettings = false; settingsError = "" }
+                        .onFailure { settingsError = "Could not save securely: " + (it.message ?: "Unknown error") }
+                }) { Text("SAVE SECURELY") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        configStore.clear()
+                        providerConfig = null
+                        providerUrl = ""
+                        providerModel = ""
+                        providerKey = ""
+                        settingsError = ""
+                        showSettings = false
+                    }) { Text("USE DEMO") }
+                    TextButton(onClick = { showSettings = false }) { Text("CANCEL") }
+                }
+            }
+        )
+    }
+
 }
 
 @Composable
