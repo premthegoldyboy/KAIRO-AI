@@ -6,11 +6,11 @@ package com.kairo.ai
  * providers can be added without coupling the UI to a specific vendor.
  */
 interface AIEngine {
-    suspend fun reply(message: String): String
+    fun reply(message: String): String
 }
 
 class DemoAIEngine : AIEngine {
-    override suspend fun reply(message: String): String {
+    override fun reply(message: String): String {
         val text = message.trim()
         if (text.isBlank()) return "I'm listening. What would you like to do?"
         return when {
