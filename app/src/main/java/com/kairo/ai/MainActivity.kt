@@ -121,7 +121,15 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var providerConfigs by remember { mutableStateOf(configStore.loadAll()) }
     var providerConfig by remember { mutableStateOf(providerConfigs.firstOrNull()) }
     var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
-    var localAiEnabled by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
+    val aiModeStore = remember { AIExecutionModeStore(context) }
+    var localAiEnabled by remember {
+        mutableStateOf(
+            aiModeStore.load(
+                defaultMode = if (LocalModelManager.isDownloaded(context)) AIExecutionMode.LOCAL
+                    else if (providerConfigs.isNotEmpty()) AIExecutionMode.CLOUD else AIExecutionMode.LOCAL
+            ) == AIExecutionMode.LOCAL
+        )
+    }
     var isDownloadingModel by remember { mutableStateOf(false) }
     var modelDownloadProgress by remember { mutableStateOf(0) }
     var modelDownloadError by remember { mutableStateOf("") }
@@ -300,9 +308,10 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Button(onClick = { input = if (input.isBlank()) "Help me define requirements for: " else "Create a requirements brief for: " + input }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("REQ", fontSize = 9.sp) }
                     Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
                     Button(
+                        enabled = !isThinking,
                         onClick = {
                             val prompt = input.trim()
-                            if (prompt.isNotEmpty()) {
+                            if (prompt.isNotEmpty() && !isThinking) {
                                 messages.add(ChatMessage(prompt, false))
                                 input = ""
                                 isThinking = true
@@ -561,8 +570,21 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         Text(modelDownloadError, color = Color(0xFFFFB4AB), fontSize = 11.sp)
                     }
                     if (localModelReady) {
-                        TextButton(onClick = { localAiEnabled = true; showSettings = false }) {
+                        TextButton(onClick = {
+                            localAiEnabled = true
+                            aiModeStore.save(AIExecutionMode.LOCAL)
+                            showSettings = false
+                        }) {
                             Text("USE LOCAL AI", color = Color(0xFF70E9FF))
+                        }
+                        if (providerConfigs.isNotEmpty()) {
+                            TextButton(onClick = {
+                                localAiEnabled = false
+                                aiModeStore.save(AIExecutionMode.CLOUD)
+                                showSettings = false
+                            }) {
+                                Text("USE CLOUD AI", color = Color(0xFF70E9FF))
+                            }
                         }
                     }
                 }
