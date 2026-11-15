@@ -213,7 +213,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             if (prompt.isNotEmpty()) {
                                 messages.add(ChatMessage(prompt, false))
                                 input = ""
-                                val answer = runCatching { kotlinx.coroutines.runBlocking { engine.reply(prompt) } }
+                                val answer = runCatching { engine.reply(prompt) }
                                     .getOrElse { "Something went wrong. Please try again." }
                                 messages.add(ChatMessage(answer, true))
                                 onSpeak(answer)
