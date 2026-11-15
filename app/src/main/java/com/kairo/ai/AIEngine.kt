@@ -68,3 +68,30 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
             }
         }
 }
+
+
+/**
+ * Tries configured providers in order. Quota, rate-limit, timeout and service errors
+ * move to the next provider. No provider is treated as unlimited.
+ */
+class FailoverAIEngine(private val providers: List<AIProviderConfig>) : AIEngine {
+    override suspend fun reply(message: String, memoryContext: String): String {
+        if (providers.isEmpty()) throw IllegalStateException("No cloud AI providers are configured.")
+        val failures = mutableListOf<String>()
+        for ((index, provider) in providers.withIndex()) {
+            try {
+                return OpenAICompatibleEngine(provider).reply(message, memoryContext)
+            } catch (error: Exception) {
+                val reason = error.message?.take(120) ?: "Unknown provider error"
+                failures += "${provider.model}: $reason"
+                if (index == providers.lastIndex) {
+                    throw IllegalStateException(
+                        "All ${providers.size} configured AI provider(s) are unavailable. " +
+                            failures.joinToString(" | ")
+                    )
+                }
+            }
+        }
+        throw IllegalStateException("No AI provider could answer.")
+    }
+}
