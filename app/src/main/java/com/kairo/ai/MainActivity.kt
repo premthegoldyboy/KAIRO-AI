@@ -546,6 +546,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     }
                                     localModelReady = true
                                     localAiEnabled = true
+                                    aiModeStore.save(AIExecutionMode.LOCAL)
                                 } catch (error: Exception) {
                                     modelDownloadError = error.message ?: "Model download failed."
                                 } finally {
@@ -616,6 +617,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             providerConfigs = configs
                             providerConfig = configs.firstOrNull()
                             localAiEnabled = false
+                            aiModeStore.save(AIExecutionMode.CLOUD)
                             showSettings = false
                             settingsError = ""
                         }
@@ -628,7 +630,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         configStore.clear()
                         providerConfig = null
                         providerConfigs = emptyList()
-                        localAiEnabled = false
+                        localAiEnabled = localModelReady
+                        aiModeStore.save(if (localModelReady) AIExecutionMode.LOCAL else AIExecutionMode.CLOUD)
                         providerUrl = ""
                         providerModel = ""
                         providerKey = ""
