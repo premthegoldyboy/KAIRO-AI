@@ -15,7 +15,7 @@ interface AIEngine {
  * Provider adapter. DeepSeek and xAI use Chat Completions; Anthropic uses its
  * native Messages API so Claude does not depend on the compatibility layer.
  */
-class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
+class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {\n    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }
     override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
@@ -51,7 +51,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                 connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val body = stream?.use { input ->\n                    val bytes = input.readNBytes(MAX_RESPONSE_BYTES + 1)\n                    require(bytes.size <= MAX_RESPONSE_BYTES) { "Provider response was too large." }\n                    bytes.toString(Charsets.UTF_8)\n                }.orEmpty()
                 if (status !in 200..299) {
                     val detail = runCatching {
                         val json = JSONObject(body)
