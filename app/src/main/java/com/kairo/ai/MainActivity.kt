@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -176,8 +177,19 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
         }
     }
     val chatListState = rememberLazyListState()
-    LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length) {
+    val shouldFollowLatest by remember {
+        derivedStateOf {
+            val lastVisible = chatListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible >= messages.lastIndex - 1
+        }
+    }
+    LaunchedEffect(Unit) {
         if (messages.isNotEmpty()) chatListState.scrollToItem(messages.lastIndex)
+    }
+    LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length) {
+        if (messages.isNotEmpty() && shouldFollowLatest) {
+            chatListState.animateScrollToItem(messages.lastIndex)
+        }
     }
     LaunchedEffect(messages.size) {
         conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
