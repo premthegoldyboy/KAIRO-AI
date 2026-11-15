@@ -4,6 +4,7 @@ import java.math.BigDecimal
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.kairo.ai.tools.KairoStudioUtilities
 
 /** Executes small, deterministic, offline tools. No code evaluation or shell access. */
 object KairoToolExecutor {
@@ -12,6 +13,24 @@ object KairoToolExecutor {
             val value = ArithmeticParser(request.argument).parse()
             "The answer is ${BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()}."
         }.getOrElse { "I couldn't calculate that: ${it.message ?: "invalid expression"}." }
+        KairoSkillType.CONVERT -> runCatching {
+            val parts = request.argument.split('|')
+            require(parts.size == 3) { "Use: convert 5 km to m." }
+            val value = parts[0].toDouble()
+            val converted = KairoStudioUtilities.roundTo(
+                KairoStudioUtilities.convert(value, parts[1], parts[2]), 6
+            )
+            value.toString() + " " + parts[1] + " = " + converted + " " + parts[2]
+        }.getOrElse { "I couldn't convert those units: " + (it.message ?: "invalid conversion") + "." }
+        KairoSkillType.ANALYZE_DOCUMENT -> runCatching {
+            val metrics = KairoStudioUtilities.analyzeDocument(request.argument)
+            "Document analysis\n" +
+                "Characters: " + metrics.characters + "\n" +
+                "Words: " + metrics.words + "\n" +
+                "Sentences: " + metrics.sentences + "\n" +
+                "Estimated tokens: " + metrics.estimatedTokens + "\n" +
+                "Script: " + metrics.language.name.lowercase().replace('_', ' ')
+        }.getOrElse { "I couldn't analyze that text: " + (it.message ?: "unknown error") + "." }
         KairoSkillType.CURRENT_TIME -> {
             val now = ZonedDateTime.now()
             "It's " + now.format(DateTimeFormatter.ofPattern("h:mm a z", Locale.getDefault())) +

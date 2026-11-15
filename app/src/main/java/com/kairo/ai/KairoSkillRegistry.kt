@@ -1,6 +1,6 @@
 package com.kairo.ai
 
-enum class KairoSkillType { OPEN_APP, REMEMBER, FORGET, RECALL, CALCULATE, CURRENT_TIME, GENERAL }
+enum class KairoSkillType { OPEN_APP, REMEMBER, FORGET, RECALL, CALCULATE, CONVERT, ANALYZE_DOCUMENT, CURRENT_TIME, GENERAL }
 data class KairoSkillRequest(val type: KairoSkillType, val argument: String = "")
 
 /** Deterministic intent routing for supported commands in English and Telugu-English. */
@@ -20,6 +20,8 @@ object KairoSkillRegistry {
         Regex("(?i)^what is\\s+([0-9().+*/%\\-\\s]+)\\??$")
     )
     private val arithmeticOnly = Regex("^[0-9().+*/%\\-\\s]+$")
+    private val conversionPattern = Regex("(?i)^convert\\s+(-?\\d+(?:\\.\\d+)?)\\s+([a-z]+)\\s+(?:to|into)\\s+([a-z]+)$")
+    private val documentPattern = Regex("(?is)^(?:analyze|analyse)\\s+(?:this\\s+)?(?:document|text)\\s*:\\s*(.+)$")
 
     fun detect(message: String): KairoSkillRequest {
         val text = message.trim()
@@ -51,6 +53,15 @@ object KairoSkillRegistry {
         }
         if (arithmeticOnly.matches(text) && text.any { it in "+-*/%" } && text.any(Char::isDigit)) {
             return KairoSkillRequest(KairoSkillType.CALCULATE, text)
+        }
+        conversionPattern.matchEntire(text)?.let { match ->
+            return KairoSkillRequest(
+                KairoSkillType.CONVERT,
+                listOf(match.groupValues[1], match.groupValues[2], match.groupValues[3]).joinToString("|")
+            )
+        }
+        documentPattern.matchEntire(text)?.let { match ->
+            return KairoSkillRequest(KairoSkillType.ANALYZE_DOCUMENT, match.groupValues[1].trim())
         }
         if (lower in setOf("what time is it", "current time", "time now", "what's the time",
                 "today's date", "what is today's date", "what date is it", "today date",
