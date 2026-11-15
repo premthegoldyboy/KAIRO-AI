@@ -121,7 +121,15 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var providerConfigs by remember { mutableStateOf(configStore.loadAll()) }
     var providerConfig by remember { mutableStateOf(providerConfigs.firstOrNull()) }
     var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
-    var localAiEnabled by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
+    val aiModeStore = remember { AIExecutionModeStore(context) }
+    var localAiEnabled by remember {
+        mutableStateOf(
+            aiModeStore.load(
+                defaultMode = if (LocalModelManager.isDownloaded(context)) AIExecutionMode.LOCAL
+                    else if (providerConfigs.isNotEmpty()) AIExecutionMode.CLOUD else AIExecutionMode.LOCAL
+            ) == AIExecutionMode.LOCAL
+        )
+    }
     var isDownloadingModel by remember { mutableStateOf(false) }
     var modelDownloadProgress by remember { mutableStateOf(0) }
     var modelDownloadError by remember { mutableStateOf("") }
@@ -300,14 +308,16 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Button(onClick = { input = if (input.isBlank()) "Help me define requirements for: " else "Create a requirements brief for: " + input }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("REQ", fontSize = 9.sp) }
                     Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
                     Button(
+                        enabled = !isThinking,
                         onClick = {
                             val prompt = input.trim()
-                            if (prompt.isNotEmpty()) {
+                            if (prompt.isNotEmpty() && !isThinking) {
                                 messages.add(ChatMessage(prompt, false))
                                 input = ""
                                 isThinking = true
                                 scope.launch {
-                                    val skillRequest = KairoSkillRegistry.detect(prompt)
+                                    try {
+                                        val skillRequest = KairoSkillRegistry.detect(prompt)
                                     val directToolAnswer = KairoToolExecutor.execute(skillRequest)
                                     if (directToolAnswer != null) {
                                         messages.add(ChatMessage(directToolAnswer, true))
@@ -358,8 +368,10 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     memoryItems = memoryStore.all()
                                     val taskProfile = KairoTaskPlanner.classify(prompt)
                                     val aiPrompt = if (taskProfile.type == TaskType.REQUIREMENTS) KairoRequirementsAgent.enhance(prompt) else prompt
-                                    val liveResults = if (taskProfile.needsLiveData && researchApiKey.isNotBlank()) {
-                                        try { researchClient.search(prompt) } catch (error: Exception) {
+                                    val liveResults = if (KairoTaskPlanner.shouldFetchLiveData(taskProfile, localAiEnabled, researchApiKey.isNotBlank())) {
+                                        try { researchClient.search(prompt) } catch (cancel: CancellationException) {
+                                            throw cancel
+                                        } catch (error: Exception) {
                                             messages.add(ChatMessage("Live research failed: " + (error.message ?: "search error"), true))
                                             isThinking = false
                                             return@launch
@@ -426,6 +438,14 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         isThinking = false
                                     }
                                     onSpeak(messages[responseSlot].text)
+                                    } catch (cancel: CancellationException) {
+                                        throw cancel
+                                    } catch (error: Exception) {
+                                        messages.add(ChatMessage("KAIRO: " + (error.message ?: "Something went wrong. Please try again."), true))
+                                        conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
+                                    } finally {
+                                        isThinking = false
+                                    }
                                 }
                             }
                         },
@@ -537,6 +557,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     }
                                     localModelReady = true
                                     localAiEnabled = true
+                                    aiModeStore.save(AIExecutionMode.LOCAL)
                                 } catch (error: Exception) {
                                     modelDownloadError = error.message ?: "Model download failed."
                                 } finally {
@@ -561,8 +582,21 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         Text(modelDownloadError, color = Color(0xFFFFB4AB), fontSize = 11.sp)
                     }
                     if (localModelReady) {
-                        TextButton(onClick = { localAiEnabled = true; showSettings = false }) {
+                        TextButton(onClick = {
+                            localAiEnabled = true
+                            aiModeStore.save(AIExecutionMode.LOCAL)
+                            showSettings = false
+                        }) {
                             Text("USE LOCAL AI", color = Color(0xFF70E9FF))
+                        }
+                    }
+                    if (providerConfigs.isNotEmpty()) {
+                        TextButton(onClick = {
+                            localAiEnabled = false
+                            aiModeStore.save(AIExecutionMode.CLOUD)
+                            showSettings = false
+                        }) {
+                            Text("USE CLOUD AI", color = Color(0xFF70E9FF))
                         }
                     }
                 }
@@ -594,6 +628,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             providerConfigs = configs
                             providerConfig = configs.firstOrNull()
                             localAiEnabled = false
+                            aiModeStore.save(AIExecutionMode.CLOUD)
                             showSettings = false
                             settingsError = ""
                         }
@@ -606,7 +641,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         configStore.clear()
                         providerConfig = null
                         providerConfigs = emptyList()
-                        localAiEnabled = false
+                        localAiEnabled = localModelReady
+                        aiModeStore.save(if (localModelReady) AIExecutionMode.LOCAL else AIExecutionMode.CLOUD)
                         providerUrl = ""
                         providerModel = ""
                         providerKey = ""
@@ -664,6 +700,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     messages.clear()
                     messages.add(ChatMessage("KAIRO core initialized. I'm ready when you are.", true))
                     conversationStore.clear()
+                    scope.launch { runCatching { localEngine.resetConversation() } }
                     showClearChatDialog = false
                 }) { Text("CLEAR HISTORY") }
             },

@@ -20,8 +20,8 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 
 ## Important limitations
 
-- Live web search and news/trend retrieval are not implemented yet. Models cannot be assumed to know current events; KAIRO needs a search/retrieval integration before it can answer live-information questions reliably.
-- Streaming responses are not implemented yet; current provider requests return a complete response.
+- Optional live web search is available through a user-configured Tavily key. It is disabled in LOCAL mode; cloud mode can retrieve dated source URLs for synthesis. Search quotas and availability depend on Tavily.
+- Cloud responses support streaming; local inference currently returns its completed response as one chunk.
 - The local model's runtime performance and compatibility must be verified on a physical device.
 - Wake-word / always-listening detection is not implemented.
 - Memory auto-learning is deliberately narrow and should not be treated as a complete semantic memory system.

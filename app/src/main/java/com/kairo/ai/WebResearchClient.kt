@@ -25,6 +25,19 @@ data class ResearchResult(val title: String, val url: String, val content: Strin
 
 /** Tavily-backed live search. The key is encrypted with an Android Keystore AES-GCM key. */
 class WebResearchClient(private val context: Context) {
+    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }
+
+    private fun readBounded(input: java.io.InputStream, limit: Int): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size() + count <= limit) { "The search service returned an oversized response." }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
     private val prefs = context.applicationContext.getSharedPreferences("kairo_research", Context.MODE_PRIVATE)
     private val alias = "kairo_research_key"
 
@@ -56,7 +69,8 @@ class WebResearchClient(private val context: Context) {
         require(key.isNotBlank()) { "Add a Tavily search API key in Settings to enable live research." }
         require(query.isNotBlank() && query.length <= 500) { "Enter a shorter research question." }
         val connection = (URL("https://api.tavily.com/search").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; connectTimeout = 8_000; readTimeout = 15_000
+            requestMethod = "POST"; instanceFollowRedirects = false
+            connectTimeout = 8_000; readTimeout = 15_000
             doInput = true
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
@@ -71,7 +85,9 @@ class WebResearchClient(private val context: Context) {
             val status = connection.responseCode
             if (status !in 200..299) {
                 val errorBody = runCatching {
-                    (connection.errorStream ?: connection.inputStream).bufferedReader().use { it.readText() }
+                    (connection.errorStream ?: connection.inputStream).use { input ->
+                        readBounded(input, MAX_RESPONSE_BYTES).toString(Charsets.UTF_8)
+                    }
                 }.getOrDefault("")
                 val detail = when (status) {
                     401, 403 -> "The search key was rejected. Check the Tavily key."
@@ -81,7 +97,9 @@ class WebResearchClient(private val context: Context) {
                 }
                 throw IllegalStateException(if (errorBody.isBlank()) detail else detail + " " + errorBody.take(180))
             }
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            val responseBytes = connection.inputStream.use { readBounded(it, MAX_RESPONSE_BYTES) }
+            require(responseBytes.size <= MAX_RESPONSE_BYTES) { "The search service returned an oversized response." }
+            val json = JSONObject(responseBytes.toString(Charsets.UTF_8))
             coroutineContext.ensureActive()
             val results = json.optJSONArray("results") ?: JSONArray()
             (0 until minOf(results.length(), 5)).mapNotNull { i ->

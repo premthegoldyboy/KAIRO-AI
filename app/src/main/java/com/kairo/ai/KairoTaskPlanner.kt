@@ -8,7 +8,7 @@ data class TaskProfile(
     val needsLiveData: Boolean,
     val language: LangStyle
 ) {
-    val preferCloud: Boolean get() = complexity >= 2 || needsLiveData || language != LangStyle.ENGLISH
+    // Model choice is explicit in Settings. Task complexity or language must never force a cloud request.
 }
 
 /** Fast keyword-based task routing; live-data requests are explicitly marked as unverified. */
@@ -67,6 +67,10 @@ object KairoTaskPlanner {
     }
 
     fun complexity(message: String): Int = classify(message).complexity
+
+    /** Local mode is strictly offline: never send even a search query to a remote service. */
+    fun shouldFetchLiveData(profile: TaskProfile, localMode: Boolean, hasSearchKey: Boolean): Boolean =
+        !localMode && profile.needsLiveData && hasSearchKey
 
     fun prepare(message: String, profile: TaskProfile = classify(message), liveDataAvailable: Boolean = false): String {
         val lines = mutableListOf<String>()

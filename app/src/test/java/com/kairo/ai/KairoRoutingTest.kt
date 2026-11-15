@@ -4,8 +4,35 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.flow.collect
 
 class KairoRoutingTest {
+    @Test fun chatTurnNormalizationDropsLeadingAssistantAndMergesAdjacentRoles() {
+        assertEquals(
+            listOf(ChatTurn("user", "first\n\nsecond"), ChatTurn("assistant", "answer")),
+            ChatTurn.normalize(
+                listOf(
+                    ChatTurn("assistant", "orphan"),
+                    ChatTurn("user", "first"),
+                    ChatTurn("user", "second"),
+                    ChatTurn("system", "invalid"),
+                    ChatTurn("assistant", "answer")
+                )
+            )
+        )
+    }
+
+    @Test fun providerRequestRejectsOversizedPromptAndContext() {
+        try {
+            validateProviderRequestSize("x".repeat(32_001), "")
+            throw AssertionError("Expected oversized prompt to be rejected")
+        } catch (_: IllegalArgumentException) { }
+        try {
+            validateProviderRequestSize("hello", "x".repeat(16_001))
+            throw AssertionError("Expected oversized context to be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun romanizedTeluguIsDetected() = assertEquals(LangStyle.TELUGU_ENGLISH, KairoLanguage.detect("Nuvvu ela unnav ippudu?"))
     @Test fun plainEnglishStaysEnglish() = assertEquals(LangStyle.ENGLISH, KairoLanguage.detect("How are you doing today"))
     @Test fun teluguScriptIsDetected() = assertEquals(LangStyle.TELUGU_SCRIPT, KairoLanguage.detect("నమస్కారం ఎలా ఉన్నారు"))
@@ -13,25 +40,25 @@ class KairoRoutingTest {
     @Test fun codingIsCloudWork() {
         val p = KairoTaskPlanner.classify("fix this kotlin crash")
         assertEquals(TaskType.CODING, p.type)
-        assertTrue(p.preferCloud)
+        assertFalse(p.needsLiveData)
     }
     @Test fun prefixIsNotTreatedAsFix() {
         val p = KairoTaskPlanner.classify("what is a prefix tree")
         assertEquals(TaskType.SIMPLE, p.type)
-        assertFalse(p.preferCloud)
+        assertFalse(p.needsLiveData)
     }
     @Test fun newsNeedsLiveData() {
         val p = KairoTaskPlanner.classify("latest AI news today")
         assertEquals(TaskType.NEWS, p.type)
         assertTrue(p.needsLiveData)
     }
-    @Test fun translationUsesCloud() = assertTrue(KairoTaskPlanner.classify("translate good morning to telugu").preferCloud)
+    @Test fun translationDoesNotRequireLiveData() = assertFalse(KairoTaskPlanner.classify("translate good morning to telugu").needsLiveData)
     @Test fun wordProblemIsMath() = assertEquals(TaskType.MATH, KairoTaskPlanner.classify("solve 2x+3=7").type)
     @Test fun planningIsDetected() = assertEquals(TaskType.PLANNING, KairoTaskPlanner.classify("plan my week").type)
     @Test fun requirementsRequestsUseDedicatedAgentRoute() {
         val profile = KairoTaskPlanner.classify("write requirements and acceptance criteria for a study app")
         assertEquals(TaskType.REQUIREMENTS, profile.type)
-        assertTrue(profile.preferCloud)
+        assertFalse(profile.needsLiveData)
     }
     @Test fun requirementsAgentAddsStructuredAndTestableInstructions() {
         val prompt = KairoRequirementsAgent.enhance("Build a study planner")
@@ -44,14 +71,35 @@ class KairoRoutingTest {
         val p = KairoTaskPlanner.classify("hello")
         assertEquals(TaskType.SIMPLE, p.type)
         assertEquals(0, p.complexity)
-        assertFalse(p.preferCloud)
+        assertFalse(p.needsLiveData)
     }
-    @Test fun teluguEnglishPrefersCloudAndAddsStyleHint() {
+    @Test fun teluguEnglishAddsStyleHintWithoutRequiringCloud() {
         val p = KairoTaskPlanner.classify("ela unnav")
-        assertTrue(p.preferCloud)
+        assertFalse(p.needsLiveData)
         assertTrue(KairoTaskPlanner.prepare("ela unnav", p).contains("Telugu"))
     }
     @Test fun liveQuestionWarnsModelItHasNoBrowsing() = assertTrue(KairoTaskPlanner.prepare("latest AI news today").contains("cannot browse"))
+    @Test fun localModeNeverSendsLiveSearchRequests() {
+        val profile = KairoTaskPlanner.classify("latest AI news today")
+        assertFalse(KairoTaskPlanner.shouldFetchLiveData(profile, localMode = true, hasSearchKey = true))
+    }
+    @Test fun cloudModeCanUseLiveSearchWhenConfigured() {
+        val profile = KairoTaskPlanner.classify("latest AI news today")
+        assertTrue(KairoTaskPlanner.shouldFetchLiveData(profile, localMode = false, hasSearchKey = true))
+    }
+    @Test fun missingSearchKeyNeverStartsLiveSearch() {
+        val profile = KairoTaskPlanner.classify("latest AI news today")
+        assertFalse(KairoTaskPlanner.shouldFetchLiveData(profile, localMode = false, hasSearchKey = false))
+    }
+    @Test fun blankForgetQueryPreservesEveryMemory() {
+        val saved = listOf("Name: Kai", "Preference: concise answers")
+        assertEquals(saved, memoriesAfterForget(saved, "   "))
+    }
+    @Test fun forgetQueryRemovesOnlyMatchingMemories() {
+        assertEquals(listOf("Preference: concise answers"),
+            memoriesAfterForget(listOf("Name: Kai", "Preference: concise answers"), "name"))
+    }
+
     @Test fun simpleChatIsNotWrapped() = assertEquals("hello", KairoTaskPlanner.prepare("hello"))
 
     @Test fun timeQuestionWithQuestionMark() = assertEquals(KairoSkillType.CURRENT_TIME, KairoSkillRegistry.detect("What time is it?").type)
@@ -108,6 +156,8 @@ class ResearchPresentationTest {
         assertEquals(null, ResearchPresentation.safeHttpsUrl("http://example.com"))
         assertEquals(null, ResearchPresentation.safeHttpsUrl("https://user:pass@example.com/path"))
         assertEquals(null, ResearchPresentation.safeHttpsUrl("javascript:alert(1)"))
+        assertEquals(null, ResearchPresentation.safeHttpsUrl("https://example.com:70000/path"))
+        assertEquals(null, ResearchPresentation.safeHttpsUrl("https://" + "a".repeat(2_050) + ".com"))
     }
 
     @Test fun acceptsNormalHttpsSource() {
@@ -127,5 +177,79 @@ class ResearchPresentationTest {
 
     @Test fun noSourcesDoesNotChangeAnswer() {
         assertEquals("Answer", ResearchPresentation.appendSources("Answer", emptyList()))
+    }
+}
+
+
+class KairoBrainLocalFirstTest {
+    private class FakeEngine(
+        private val answer: String = "local answer",
+        private val failure: Exception? = null
+    ) : AIEngine {
+        var calls = 0
+        override suspend fun reply(message: String, memoryContext: String): String {
+            calls++
+            failure?.let { throw it }
+            return answer
+        }
+    }
+
+    private val deliberatelyInvalidCloud = listOf(
+        AIProviderConfig("http://must-not-be-contacted.invalid", "test-model", "test-key")
+    )
+
+    @Test fun selectedLocalEngineHandlesComplexCodingWithoutCloudRouting() {
+        val local = FakeEngine()
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = true)
+        kotlinx.coroutines.runBlocking {
+            assertEquals("local answer", brain.reply("fix this kotlin crash", ""))
+        }
+        assertEquals(1, local.calls)
+    }
+
+    @Test fun localFailureDoesNotSilentlyFallBackToCloud() {
+        val local = FakeEngine(failure = IllegalStateException("local runtime unavailable"))
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = true)
+        kotlinx.coroutines.runBlocking {
+            try {
+                brain.reply("write a research plan", "")
+                throw AssertionError("Expected local inference failure")
+            } catch (error: IllegalStateException) {
+                assertTrue(error.message.orEmpty().contains("not sent to a cloud provider"))
+                assertTrue(error.cause?.message.orEmpty().contains("local runtime unavailable"))
+            }
+        }
+        assertEquals(1, local.calls)
+    }
+
+    @Test fun selectedLocalModeDoesNotUseCloudWhenModelIsMissing() {
+        val local = FakeEngine()
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = false)
+        kotlinx.coroutines.runBlocking {
+            try {
+                brain.reply("hello", "")
+                throw AssertionError("Expected missing local model error")
+            } catch (error: IllegalStateException) {
+                assertTrue(error.message.orEmpty().contains("model is not downloaded"))
+            }
+        }
+        assertEquals(0, local.calls)
+    }
+
+    @Test fun localStreamingAlsoStaysOfflineFromCloudProviders() {
+        val local = FakeEngine()
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = true)
+        kotlinx.coroutines.runBlocking {
+            val chunks = mutableListOf<String>()
+            brain.replyStream(
+                message = "latest AI news today",
+                history = emptyList(),
+                memoryContext = "",
+                localContext = "offline context",
+                liveDataAvailable = true
+            ).collect { chunks += it }
+            assertEquals(listOf("local answer"), chunks)
+        }
+        assertEquals(1, local.calls)
     }
 }

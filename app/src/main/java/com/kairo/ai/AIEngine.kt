@@ -7,6 +7,11 @@ import java.net.URL
 
 data class AIProviderConfig(val baseUrl: String, val model: String, val apiKey: String, val protocol: String = "openai")
 
+internal fun validateProviderRequestSize(message: String, memoryContext: String) {
+    require(message.length <= 32_000) { "Your message is too long. Please shorten it and try again." }
+    require(memoryContext.length <= 16_000) { "The conversation context is too large. Start a new chat or clear some history." }
+}
+
 interface AIEngine {
     suspend fun reply(message: String, memoryContext: String = ""): String
 }
@@ -16,8 +21,23 @@ interface AIEngine {
  * native Messages API so Claude does not depend on the compatibility layer.
  */
 class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
+    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }
+
+    private fun readBounded(input: java.io.InputStream, limit: Int): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size() + count <= limit) { "Provider response was too large." }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
+
     override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            validateProviderRequestSize(message, memoryContext)
             require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
             require(config.model.isNotBlank()) { "Enter a model name in KAIRO settings." }
             require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
@@ -26,6 +46,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
             val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, isAnthropic)
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
+                instanceFollowRedirects = false
                 connectTimeout = 10_000
                 readTimeout = 60_000
                 doInput = true
@@ -51,7 +72,9 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                 connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-                val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val body = stream?.use { input ->
+                    readBounded(input, MAX_RESPONSE_BYTES).toString(Charsets.UTF_8)
+                }.orEmpty()
                 if (status !in 200..299) {
                     val detail = runCatching {
                         val json = JSONObject(body)

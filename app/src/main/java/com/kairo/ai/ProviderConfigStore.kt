@@ -19,8 +19,18 @@ class ProviderConfigStore(context: Context) {
 
     fun saveAll(configs: List<AIProviderConfig>) {
         require(configs.isNotEmpty()) { "At least one provider is required." }
+        require(configs.size <= 4) { "KAIRO supports up to four cloud providers." }
+        configs.forEach { config ->
+            require(config.baseUrl.length <= 2048 && config.model.length <= 200 && config.apiKey.length <= 4096) {
+                "Provider settings exceed the supported size limits."
+            }
+            require(config.model.isNotBlank() && config.apiKey.isNotBlank()) {
+                "Each provider needs a model name and API key."
+            }
+            ProviderEndpoints.chatCompletions(config.baseUrl, config.protocol.equals("anthropic", ignoreCase = true))
+        }
         val plain = org.json.JSONArray().apply {
-            configs.take(4).forEach { config ->
+            configs.forEach { config ->
                 put(org.json.JSONObject()
                     .put("baseUrl", config.baseUrl)
                     .put("model", config.model)
@@ -55,7 +65,7 @@ class ProviderConfigStore(context: Context) {
                     }
                 }
             } else {
-                val parts = plain.split("\\n", limit = 3)
+                val parts = plain.split('\n', limit = 3)
                 if (parts.size == 3) listOf(AIProviderConfig(parts[0], parts[1], parts[2])) else emptyList()
             }
         }.getOrDefault(emptyList())

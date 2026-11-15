@@ -8,7 +8,8 @@ object ProviderEndpoints {
         val trimmed = baseUrl.trim().trimEnd('/')
         require(trimmed.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
         val uri = URI(trimmed)
-        require(uri.host != null && uri.userInfo == null && uri.query == null && uri.fragment == null) {
+        require(uri.host != null && uri.userInfo == null && uri.query == null && uri.fragment == null &&
+            uri.port in -1..65535 && uri.port != 0 && uri.host.length <= 253 && trimmed.length <= 2048) {
             "Enter a valid provider base URL without credentials, query parameters, or fragments."
         }
         val path = uri.path.orEmpty().trimEnd('/')
