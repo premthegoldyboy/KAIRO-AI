@@ -39,6 +39,8 @@ class MemoryStore(context: Context) {
 
     @Synchronized
     fun forgetMatching(query: String): Int {
+        // An empty or whitespace-only query must never match every saved memory.
+        if (query.isBlank()) return 0
         val current = all()
         val remaining = current.filterNot { it.contains(query, ignoreCase = true) }
         save(remaining)
