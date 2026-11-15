@@ -7,6 +7,11 @@ import java.net.URL
 
 data class AIProviderConfig(val baseUrl: String, val model: String, val apiKey: String, val protocol: String = "openai")
 
+internal fun validateProviderRequestSize(message: String, memoryContext: String) {
+    require(message.length <= 32_000) { "Your message is too long. Please shorten it and try again." }
+    require(memoryContext.length <= 16_000) { "The conversation context is too large. Start a new chat or clear some history." }
+}
+
 interface AIEngine {
     suspend fun reply(message: String, memoryContext: String = ""): String
 }
@@ -32,6 +37,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
 
     override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            validateProviderRequestSize(message, memoryContext)
             require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
             require(config.model.isNotBlank()) { "Enter a model name in KAIRO settings." }
             require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
@@ -40,6 +46,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
             val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, isAnthropic)
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
+                instanceFollowRedirects = false
                 connectTimeout = 10_000
                 readTimeout = 60_000
                 doInput = true
