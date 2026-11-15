@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -165,6 +167,10 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             if (isEmpty()) add(ChatMessage("KAIRO core initialized. I'm ready when you are.", true))
         }
     }
+    val chatListState = rememberLazyListState()
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) chatListState.animateScrollToItem(messages.lastIndex)
+    }
     LaunchedEffect(messages.size) {
         conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
     }
@@ -219,6 +225,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .background(Brush.verticalGradient(listOf(Color(0xFF101B31), Color(0xFF070B14))))
                     .padding(18.dp)
             ) {
@@ -287,6 +294,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 Spacer(Modifier.height(12.dp))
 
                 LazyColumn(
+                    state = chatListState,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
