@@ -2,9 +2,9 @@ name: Build KAIRO Android APK
 
 on:
   pull_request:
-    branches: [ "main" ]
-  push:
     branches: [ "main", "integration/google-ai-studio-foundation" ]
+  push:
+    branches: [ "main", "integration/google-ai-studio-foundation", "kairo/**" ]
   workflow_dispatch:
 
 jobs:
