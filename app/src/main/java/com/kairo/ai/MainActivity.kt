@@ -94,6 +94,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 private fun KairoApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val configStore = remember { ProviderConfigStore(context) }
+    val memoryStore = remember { MemoryStore(context) }
     var providerConfig by remember { mutableStateOf(configStore.load()) }
     var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
     var localAiEnabled by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
@@ -105,6 +106,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
         onDispose { localEngine.close() }
     }
     var showSettings by remember { mutableStateOf(false) }
+    var showMemoryManager by remember { mutableStateOf(false) }
+    var memoryItems by remember { mutableStateOf(memoryStore.all()) }
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
     var providerKey by remember { mutableStateOf(providerConfig?.apiKey ?: "") }
@@ -160,6 +163,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("K A I R O", color = Color(0xFF70E9FF), fontSize = 25.sp, fontWeight = FontWeight.Black)
                         Text("SOVEREIGN INTELLIGENCE", color = Color(0xFF8195B5), fontSize = 10.sp, letterSpacing = 2.sp)
+                    }
+                    TextButton(onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }) {
+                        Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
                     }
                     TextButton(onClick = { showSettings = true }) {
                         Text("⚙ SETTINGS", color = Color(0xFF70E9FF), fontSize = 10.sp)
@@ -240,12 +246,50 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 input = ""
                                 isThinking = true
                                 scope.launch {
+                                    val lowerPrompt = prompt.lowercase()
+                                    val manualRemember = Regex("(?i)^(?:kairo[, ]*)?remember(?: that)?\s+(.+)$").find(prompt)
+                                    val forgetAll = lowerPrompt in listOf("forget all memories", "clear all memories", "delete all memories")
+                                    val forgetQuery = Regex("(?i)^(?:kairo[, ]*)?forget\s+(.+)$").find(prompt)
+                                    val memoryAnswer = when {
+                                        manualRemember != null -> {
+                                            val saved = memoryStore.remember(manualRemember.groupValues[1])
+                                            memoryItems = memoryStore.all()
+                                            if (saved) "I'll remember that. You can ask me to recall it or forget it anytime."
+                                            else "I already have that memory, or it was too short to save."
+                                        }
+                                        forgetAll -> {
+                                            memoryStore.clear()
+                                            memoryItems = emptyList()
+                                            "All saved memories have been cleared from this device."
+                                        }
+                                        forgetQuery != null -> {
+                                            val count = memoryStore.forgetMatching(forgetQuery.groupValues[1])
+                                            memoryItems = memoryStore.all()
+                                            if (count > 0) "I've removed $count matching memory item(s)."
+                                            else "I couldn't find a saved memory matching that."
+                                        }
+                                        lowerPrompt.contains("what do you remember") || lowerPrompt == "show memories" || lowerPrompt == "list memories" -> {
+                                            val saved = memoryStore.all()
+                                            memoryItems = saved
+                                            if (saved.isEmpty()) "I don't have any saved memories yet."
+                                            else "Here's what I remember:\n" + saved.joinToString("\n")
+                                        }
+                                        else -> null
+                                    }
+                                    if (memoryAnswer != null) {
+                                        messages.add(ChatMessage(memoryAnswer, true))
+                                        onSpeak(memoryAnswer)
+                                        isThinking = false
+                                        return@launch
+                                    }
+                                    memoryStore.autoLearn(prompt)
+                                    memoryItems = memoryStore.all()
                                     val activeEngine: AIEngine = when {
                                         localAiEnabled && localModelReady -> localEngine
                                         providerConfig != null -> OpenAICompatibleEngine(providerConfig!!)
                                         else -> DemoAIEngine()
                                     }
-                                    val answer = runCatching { activeEngine.reply(prompt) }
+                                    val answer = runCatching { activeEngine.reply(prompt, memoryStore.context()) }
                                         .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
                                     messages.add(ChatMessage(answer, true))
                                     onSpeak(answer)
@@ -274,6 +318,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             title = { Text("AI PROVIDER SETTINGS") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("MEMORY", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("KAIRO learns simple preferences automatically and saves anything you explicitly ask it to remember. Memories are encrypted on this device.", fontSize = 11.sp)
+                    TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
                     Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("Configure an OpenAI-compatible service. Enter its HTTPS base URL, model name and API key.", fontSize = 12.sp)
                     OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
@@ -351,6 +398,41 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     }) { Text("USE DEMO") }
                     TextButton(onClick = { showSettings = false }) { Text("CANCEL") }
                 }
+            }
+        )
+    }
+
+
+    if (showMemoryManager) {
+        AlertDialog(
+            onDismissRequest = { showMemoryManager = false },
+            title = { Text("KAIRO MEMORY") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (memoryItems.isEmpty()) {
+                        Text("No saved memories yet.")
+                    } else {
+                        memoryItems.forEach { item ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(item, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                TextButton(onClick = {
+                                    memoryStore.forgetMatching(item)
+                                    memoryItems = memoryStore.all()
+                                }) { Text("DELETE") }
+                            }
+                        }
+                    }
+                    Text("Try: Remember that … / What do you remember? / Forget … / Forget all memories.", fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMemoryManager = false }) { Text("DONE") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    memoryStore.clear()
+                    memoryItems = emptyList()
+                }) { Text("CLEAR ALL") }
             }
         )
     }
