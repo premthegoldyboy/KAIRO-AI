@@ -68,3 +68,24 @@ class KairoRoutingTest {
         assertEquals("2+3", r.argument)
     }
 }
+
+
+class KairoBrainConfigurationTest {
+    private class NeverUsedLocalEngine : AIEngine {
+        override suspend fun reply(message: String, memoryContext: String): String =
+            throw AssertionError("Local engine must not be called when it is not ready")
+    }
+
+    @Test fun missingProvidersDoesNotInventOrEchoAnAnswer() {
+        val brain = KairoBrain(NeverUsedLocalEngine(), emptyList(), false, false)
+        kotlinx.coroutines.runBlocking {
+            try {
+                brain.reply("Hello KAIRO", "")
+                throw AssertionError("Expected missing-brain configuration error")
+            } catch (error: IllegalStateException) {
+                assertTrue(error.message.orEmpty().contains("no active AI brain", ignoreCase = true))
+                assertFalse(error.message.orEmpty().contains("Demo mode"))
+            }
+        }
+    }
+}
