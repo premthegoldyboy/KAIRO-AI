@@ -283,7 +283,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text("The key is encrypted on this device using Android Keystore. Never paste it into GitHub or share it in chat.", fontSize = 11.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("ON-DEVICE AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("Download Qwen3 0.6B (about 614 MB). After downloading, KAIRO can chat offline without an API key. Keep KAIRO open and use Wi-Fi.", fontSize = 11.sp)
+                    Text("Download compact SmolLM2 360M (about 374 MB). After downloading, KAIRO can chat offline without an API key. It is smaller but may be weaker at Telugu-English than larger models. Keep KAIRO open and use Wi-Fi.", fontSize = 11.sp)
                     TextButton(
                         enabled = !isDownloadingModel && !localModelReady,
                         onClick = {
@@ -309,7 +309,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             when {
                                 localModelReady -> "✓ LOCAL MODEL DOWNLOADED"
                                 isDownloadingModel -> "DOWNLOADING…"
-                                else -> "DOWNLOAD LOCAL MODEL (614 MB)"
+                                else -> "DOWNLOAD SMALL LOCAL MODEL (374 MB)"
                             },
                             color = Color(0xFF70E9FF)
                         )
