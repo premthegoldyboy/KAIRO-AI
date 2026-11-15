@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -134,6 +135,10 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             if (isEmpty()) add(ChatMessage("KAIRO core initialized. I'm ready when you are.", true))
         }
     }
+    val chatListState = rememberLazyListState()
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) chatListState.animateScrollToItem(messages.lastIndex)
+    }
     LaunchedEffect(messages.size) {
         conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
     }
@@ -229,6 +234,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 Spacer(Modifier.height(6.dp))
 
                 LazyColumn(
+                    state = chatListState,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
