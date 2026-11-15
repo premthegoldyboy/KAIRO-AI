@@ -45,11 +45,11 @@ class KairoRoutingTest {
         val p = KairoTaskPlanner.classify("hello")
         assertEquals(TaskType.SIMPLE, p.type)
         assertEquals(0, p.complexity)
-        assertFalse(p.preferCloud)
+        assertFalse(p.needsLiveData)
     }
-    @Test fun teluguEnglishPrefersCloudAndAddsStyleHint() {
+    @Test fun teluguEnglishAddsStyleHintWithoutRequiringCloud() {
         val p = KairoTaskPlanner.classify("ela unnav")
-        assertTrue(p.preferCloud)
+        assertFalse(p.needsLiveData)
         assertTrue(KairoTaskPlanner.prepare("ela unnav", p).contains("Telugu"))
     }
     @Test fun liveQuestionWarnsModelItHasNoBrowsing() = assertTrue(KairoTaskPlanner.prepare("latest AI news today").contains("cannot browse"))
@@ -128,5 +128,79 @@ class ResearchPresentationTest {
 
     @Test fun noSourcesDoesNotChangeAnswer() {
         assertEquals("Answer", ResearchPresentation.appendSources("Answer", emptyList()))
+    }
+}
+
+
+class KairoBrainLocalFirstTest {
+    private class FakeEngine(
+        private val answer: String = "local answer",
+        private val failure: Exception? = null
+    ) : AIEngine {
+        var calls = 0
+        override suspend fun reply(message: String, memoryContext: String): String {
+            calls++
+            failure?.let { throw it }
+            return answer
+        }
+    }
+
+    private val deliberatelyInvalidCloud = listOf(
+        AIProviderConfig("http://must-not-be-contacted.invalid", "test-model", "test-key")
+    )
+
+    @Test fun selectedLocalEngineHandlesComplexCodingWithoutCloudRouting() {
+        val local = FakeEngine()
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = true)
+        kotlinx.coroutines.runBlocking {
+            assertEquals("local answer", brain.reply("fix this kotlin crash", ""))
+        }
+        assertEquals(1, local.calls)
+    }
+
+    @Test fun localFailureDoesNotSilentlyFallBackToCloud() {
+        val local = FakeEngine(failure = IllegalStateException("local runtime unavailable"))
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = true)
+        kotlinx.coroutines.runBlocking {
+            try {
+                brain.reply("write a research plan", "")
+                throw AssertionError("Expected local inference failure")
+            } catch (error: IllegalStateException) {
+                assertTrue(error.message.orEmpty().contains("not sent to a cloud provider"))
+                assertTrue(error.cause?.message.orEmpty().contains("local runtime unavailable"))
+            }
+        }
+        assertEquals(1, local.calls)
+    }
+
+    @Test fun selectedLocalModeDoesNotUseCloudWhenModelIsMissing() {
+        val local = FakeEngine()
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = false)
+        kotlinx.coroutines.runBlocking {
+            try {
+                brain.reply("hello", "")
+                throw AssertionError("Expected missing local model error")
+            } catch (error: IllegalStateException) {
+                assertTrue(error.message.orEmpty().contains("model is not downloaded"))
+            }
+        }
+        assertEquals(0, local.calls)
+    }
+
+    @Test fun localStreamingAlsoStaysOfflineFromCloudProviders() {
+        val local = FakeEngine()
+        val brain = KairoBrain(local, deliberatelyInvalidCloud, preferLocal = true, localReady = true)
+        kotlinx.coroutines.runBlocking {
+            val chunks = mutableListOf<String>()
+            brain.replyStream(
+                message = "latest AI news today",
+                history = emptyList(),
+                memoryContext = "",
+                localContext = "offline context",
+                liveDataAvailable = true
+            ).collect { chunks += it }
+            assertEquals(listOf("local answer"), chunks)
+        }
+        assertEquals(1, local.calls)
     }
 }
