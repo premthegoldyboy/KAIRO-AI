@@ -344,17 +344,17 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text("KAIRO learns simple preferences automatically and saves anything you explicitly ask it to remember. Memories are encrypted on this device.", fontSize = 11.sp)
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
                     Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("Add up to three OpenAI-compatible providers. KAIRO tries them in order and moves to the next if one is unavailable or rate-limited. Each provider still has its own limits.", fontSize = 12.sp)
-                    Text("PRIMARY PROVIDER", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
-                    OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
+                    Text("KAIRO tries DeepSeek, Grok, then Claude. DeepSeek and Grok use Chat Completions; Claude uses its native Messages API. Enter each provider's current model ID and API key. Failover does not remove provider quotas or costs.", fontSize = 12.sp)
+                    Text("PRIMARY • DEEPSEEK", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.deepseek.com") }, singleLine = true)
+                    OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, placeholder = { Text("deepseek-flash") }, singleLine = true)
                     OutlinedTextField(value = providerKey, onValueChange = { providerKey = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-                    Text("BACKUP PROVIDER 1 (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = provider2Url, onValueChange = { provider2Url = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
+                    Text("BACKUP 1 • GROK / xAI (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(value = provider2Url, onValueChange = { provider2Url = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.x.ai/v1") }, singleLine = true)
                     OutlinedTextField(value = provider2Model, onValueChange = { provider2Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
                     OutlinedTextField(value = provider2Key, onValueChange = { provider2Key = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-                    Text("BACKUP PROVIDER 2 (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(value = provider3Url, onValueChange = { provider3Url = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
+                    Text("BACKUP 2 • CLAUDE / ANTHROPIC (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(value = provider3Url, onValueChange = { provider3Url = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.anthropic.com") }, singleLine = true)
                     OutlinedTextField(value = provider3Model, onValueChange = { provider3Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
                     OutlinedTextField(value = provider3Key, onValueChange = { provider3Key = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     if (settingsError.isNotBlank()) Text(settingsError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
@@ -430,7 +430,11 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             (url.isBlank() || model.isBlank() || key.isBlank())
                     }
                     val configs = entered.filter { it.first.isNotBlank() && it.second.isNotBlank() && it.third.isNotBlank() }
-                        .map { AIProviderConfig(it.first.trim(), it.second.trim(), it.third.trim()) }
+                        .map { entry ->
+                            val url = entry.first.trim()
+                            val protocol = if (url.contains("api.anthropic.com", ignoreCase = true)) "anthropic" else "openai"
+                            AIProviderConfig(url, entry.second.trim(), entry.third.trim(), protocol)
+                        }
                     if (incomplete) settingsError = "Complete all three fields for each provider you use."
                     else if (configs.any { !it.baseUrl.startsWith("https://") }) settingsError = "Every provider URL must start with https://"
                     else if (configs.isEmpty()) settingsError = "Enter at least one provider."
