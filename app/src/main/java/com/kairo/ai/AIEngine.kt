@@ -29,6 +29,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
         }
         return output.toByteArray()
     }
+
     override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
@@ -65,9 +66,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val body = stream?.use { input ->
-                    val bytes = readBounded(input, MAX_RESPONSE_BYTES)
-                    require(bytes.size <= MAX_RESPONSE_BYTES) { "Provider response was too large." }
-                    bytes.toString(Charsets.UTF_8)
+                    readBounded(input, MAX_RESPONSE_BYTES).toString(Charsets.UTF_8)
                 }.orEmpty()
                 if (status !in 200..299) {
                     val detail = runCatching {
@@ -82,8 +81,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                     (0 until (blocks?.length() ?: 0)).mapNotNull { index ->
                         blocks?.optJSONObject(index)?.takeIf { it.optString("type") == "text" }
                             ?.optString("text")?.takeIf { it.isNotBlank() }
-                    }.joinToString("
-")
+                    }.joinToString("\\n")
                 } else JSONObject(body).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content").orEmpty()
                 answer.trim().takeIf { it.isNotBlank() } ?: "The AI provider returned an empty response."
