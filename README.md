@@ -18,14 +18,14 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 - Deterministic calculator and device date/time tools.
 - App launching only after the user confirms the requested action.
 - Telugu-English command recognition for selected memory skills.
-- User-selected TXT, Markdown, CSV, JSON, XML, and source-code text import, bounded to 24 KB and shown in the composer for review before sending.
+- User-selected TXT, Markdown, CSV, JSON, XML, and source-code text import, bounded to 24 KB, plus PDF OCR on-device (up to 5 MB and 5 pages); extracted content is shown in the composer for review before sending.
 
 ## Important limitations
 
 - Optional live web search is available through a user-configured Tavily key. It is disabled in LOCAL mode; cloud mode can retrieve dated source URLs for synthesis. Search quotas and availability depend on Tavily.
 - Cloud responses support streaming; local inference currently returns its completed response as one chunk.
 - Specialist roles are prompt-routed through the selected model; independent autonomous agents and cross-model collaboration are not implemented.
-- PDF extraction and arbitrary binary-document parsing are not implemented; the document picker accepts bounded plain-text formats only.
+- PDF support is bounded on-device OCR, not embedded-text extraction: at most 5 MB and 5 pages. OCR uses ML Kit's Latin model, so Telugu text in scanned PDFs may not be recognized. Arbitrary binary-document parsing is not implemented.
 - The local model's runtime performance and compatibility must be verified on a physical device.
 - Wake-word / always-listening detection is not implemented.
 - Memory auto-learning is deliberately narrow and should not be treated as a complete semantic memory system.
@@ -50,7 +50,7 @@ The project uses JDK 17, Gradle 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.0
 - KairoBrain.kt — adaptive local/cloud routing
 - KairoTaskPlanner.kt — task classification and planning prompts
 - KairoAgentRegistry.kt — specialist role definitions and task routing
-- DocumentTextReader.kt — bounded user-selected text import
+- DocumentTextReader.kt / PdfTextReader.kt — bounded text import and on-device PDF OCR
 - KairoSkillRegistry.kt / KairoToolExecutor.kt — supported deterministic skills
 - MemoryStore.kt / ConversationStore.kt — encrypted local memory and chat history
 - .github/workflows/android.yml — automated debug APK build
