@@ -12,6 +12,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
@@ -64,8 +66,12 @@ object LocalModelManager {
                     partial.outputStream().buffered().use { output ->
                         val buffer = ByteArray(64 * 1024)
                         while (true) {
+                            currentCoroutineContext().ensureActive()
                             val count = input.read(buffer)
                             if (count < 0) break
+                            check(received + count <= MAX_MODEL_BYTES) {
+                                "The model download exceeded the maximum supported size."
+                            }
                             output.write(buffer, 0, count)
                             received += count
                             if (expected > 0L) onProgress(((received * 100) / expected).toInt().coerceIn(0, 99))
