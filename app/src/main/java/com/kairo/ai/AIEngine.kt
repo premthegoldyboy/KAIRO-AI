@@ -1,5 +1,6 @@
 package com.kairo.ai
 
+import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -96,6 +97,8 @@ class FailoverAIEngine(private val providers: List<AIProviderConfig>) : AIEngine
         for ((index, provider) in providers.withIndex()) {
             try {
                 return OpenAICompatibleEngine(provider).reply(message, memoryContext)
+            } catch (cancel: CancellationException) {
+                throw cancel
             } catch (error: Exception) {
                 val reason = error.message?.take(120) ?: "Unknown provider error"
                 failures += "${provider.model}: $reason"
