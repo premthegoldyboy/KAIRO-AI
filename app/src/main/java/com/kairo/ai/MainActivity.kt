@@ -102,8 +102,6 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var settingsError by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val scope = rememberCoroutineScope()
-    var isThinking by remember { mutableStateOf(false) }
     val messages = remember {
         mutableStateListOf(
             ChatMessage("KAIRO core initialized. I'm ready when you are.", true)
