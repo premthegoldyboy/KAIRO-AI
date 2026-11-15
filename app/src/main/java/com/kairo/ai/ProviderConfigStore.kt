@@ -24,7 +24,8 @@ class ProviderConfigStore(context: Context) {
                 put(org.json.JSONObject()
                     .put("baseUrl", config.baseUrl)
                     .put("model", config.model)
-                    .put("apiKey", config.apiKey))
+                    .put("apiKey", config.apiKey)
+                    .put("protocol", config.protocol))
             }
         }.toString()
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -49,7 +50,7 @@ class ProviderConfigStore(context: Context) {
                 val array = org.json.JSONArray(plain)
                 (0 until array.length()).mapNotNull { index ->
                     array.optJSONObject(index)?.let { item ->
-                        AIProviderConfig(item.optString("baseUrl"), item.optString("model"), item.optString("apiKey"))
+                        AIProviderConfig(item.optString("baseUrl"), item.optString("model"), item.optString("apiKey"), item.optString("protocol", "openai"))
                             .takeIf { it.baseUrl.isNotBlank() && it.model.isNotBlank() && it.apiKey.isNotBlank() }
                     }
                 }
