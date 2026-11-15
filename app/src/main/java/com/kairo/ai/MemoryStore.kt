@@ -48,9 +48,22 @@ class MemoryStore(context: Context) {
     @Synchronized
     fun clear() = save(emptyList())
 
-    fun context(): String = all().takeIf { it.isNotEmpty() }
-        ?.joinToString("\n", prefix = "Relevant saved memories about the user (use only when relevant):\n") { "- $it" }
-        .orEmpty()
+    /** Return only memories relevant to this turn, keeping prompts compact. */
+    fun context(query: String = ""): String {
+        val memories = all()
+        if (memories.isEmpty()) return ""
+        val terms = query.lowercase().split(Regex("[^\\p{L}\\p{N}]+"))
+            .filter { it.length >= 3 }.toSet()
+        val ranked = memories.mapIndexed { index, item ->
+            val words = item.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).toSet()
+            Triple(item, terms.intersect(words).size, index)
+        }.sortedWith(compareByDescending<Triple<String, Int, Int>> { it.second }.thenByDescending { it.third })
+        val selected = if (terms.isEmpty()) memories.takeLast(8)
+            else ranked.filter { it.second > 0 }.take(8).map { it.first }
+        return selected.takeIf { it.isNotEmpty() }
+            ?.joinToString("\n", prefix = "Relevant saved memories (use only when helpful):\n") { "- $it" }
+            .orEmpty()
+    }
 
     /** Answer known personal facts directly from device memory. */
     fun answerPersonalFact(message: String): String? {
