@@ -42,7 +42,7 @@ object KairoTaskPlanner {
         val skill = KairoSkillRegistry.detect(text).type
         val type = when (skill) {
             KairoSkillType.REMEMBER, KairoSkillType.FORGET, KairoSkillType.RECALL -> TaskType.MEMORY
-            KairoSkillType.OPEN_APP, KairoSkillType.CALCULATE, KairoSkillType.CURRENT_TIME -> TaskType.TOOL
+            KairoSkillType.OPEN_APP, KairoSkillType.CALCULATE, KairoSkillType.CONVERT_UNITS, KairoSkillType.CURRENT_TIME -> TaskType.TOOL
             KairoSkillType.GENERAL -> when {
                 requirementsWords.containsMatchIn(text) -> TaskType.REQUIREMENTS
                 codingWords.containsMatchIn(text) || text.contains("```") -> TaskType.CODING
