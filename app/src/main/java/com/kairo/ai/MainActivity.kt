@@ -303,12 +303,13 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     }
                                     memoryStore.autoLearn(prompt)
                                     memoryItems = memoryStore.all()
-                                    val activeEngine: AIEngine = when {
-                                        localAiEnabled && localModelReady -> localEngine
-                                        providerConfigs.isNotEmpty() -> FailoverAIEngine(providerConfigs)
-                                        else -> DemoAIEngine()
-                                    }
-                                    val answer = runCatching { activeEngine.reply(prompt, memoryStore.context()) }
+                                    val kairoBrain = KairoBrain(
+                                        localEngine = localEngine,
+                                        providers = providerConfigs,
+                                        preferLocal = localAiEnabled,
+                                        localReady = localModelReady
+                                    )
+                                    val answer = runCatching { kairoBrain.reply(prompt, memoryStore.context()) }
                                         .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
                                     messages.add(ChatMessage(answer, true))
                                     onSpeak(answer)
