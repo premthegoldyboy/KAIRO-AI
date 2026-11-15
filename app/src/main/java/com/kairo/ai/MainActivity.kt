@@ -160,6 +160,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var provider4Key by remember { mutableStateOf(providerConfigs.getOrNull(3)?.apiKey ?: "") }
     var settingsError by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
+    var activeAgentLabel by remember { mutableStateOf("General Assistant") }
     val scope = rememberCoroutineScope()
     val messages = remember {
         mutableStateListOf<ChatMessage>().apply {
@@ -296,6 +297,13 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 fontSize = 10.sp,
                                 letterSpacing = 0.6.sp
                             )
+                            Text(
+                                (if (isThinking) "ACTIVE SPECIALIST • " else "LAST SPECIALIST • ") +
+                                    activeAgentLabel.uppercase(),
+                                color = Color(0xFF91A7C5),
+                                fontSize = 9.sp,
+                                letterSpacing = 0.4.sp
+                            )
                         }
                         Box(
                             modifier = Modifier.size(9.dp).background(
@@ -363,6 +371,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         onClick = {
                             val prompt = input.trim()
                             if (prompt.isNotEmpty() && !isThinking) {
+                                activeAgentLabel = KairoAgentRegistry.resolve(KairoTaskPlanner.classify(prompt)).displayName
                                 messages.add(ChatMessage(prompt, false))
                                 input = ""
                                 isThinking = true
