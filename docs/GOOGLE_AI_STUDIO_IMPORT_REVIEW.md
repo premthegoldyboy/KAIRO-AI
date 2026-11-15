@@ -37,4 +37,4 @@ The GitHub branch contains source and tests, but an Android Gradle build has not
 - Added explicit task-specialist routing for developer, researcher, planner, analyst, tutor, and general requests. These are role instructions sent to the selected local/cloud model; they are not represented as separate independent hosted agents.
 - Added JUnit coverage for offline tools and specialist routing. CI now runs `testDebugUnitTest assembleDebug` and triggers for updates to the integration branch.
 
-The Android build and unit-test result remains pending until the latest GitHub Actions run completes. The UI changes have not yet been visually verified on a physical Android device.
+The latest GitHub Actions run (run #156, commit 9342034) completed successfully: testDebugUnitTest and assembleDebug both passed, and the KAIRO-debug-apk artifact was uploaded. The UI changes compile, but have not yet been visually verified on a physical Android device.
