@@ -81,6 +81,7 @@ object LocalModelManager {
                 check(received in MIN_MODEL_BYTES..MAX_MODEL_BYTES) {
                     "The downloaded model is incomplete ($received bytes). Please retry."
                 }
+                currentCoroutineContext().ensureActive()
                 check(partial.renameTo(target)) { "Could not save the model on this device." }
                 File(context.filesDir, LEGACY_MODEL_FILE).delete()
                 onProgress(100)
@@ -104,7 +105,7 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
     private val dispatcher = executor.asCoroutineDispatcher()
     private var engine: Engine? = null
     private var conversation: Conversation? = null
-    private var closed = false
+    @Volatile private var closed = false
 
     override suspend fun reply(message: String, memoryContext: String): String = withContext(dispatcher) {
         check(!closed) { "Local AI engine is closed. Reopen KAIRO to use it again." }
@@ -112,7 +113,7 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
         check(LocalModelManager.isDownloaded(appContext)) {
             "Download the local AI model from Settings first."
         }
-        if (engine == null) {
+        if (engine == null || conversation == null) {
             val candidate = Engine(
                 EngineConfig(
                     modelPath = model.absolutePath,
@@ -120,13 +121,21 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
                     cacheDir = appContext.cacheDir.absolutePath
                 )
             )
-            candidate.initialize()
-            engine = candidate
-            conversation = candidate.createConversation(
-                ConversationConfig(
-                    systemInstruction = Contents.of(KairoPersonality.systemInstruction())
+            var candidateConversation: Conversation? = null
+            try {
+                candidate.initialize()
+                candidateConversation = candidate.createConversation(
+                    ConversationConfig(
+                        systemInstruction = Contents.of(KairoPersonality.systemInstruction())
+                    )
                 )
-            )
+                engine = candidate
+                conversation = candidateConversation
+            } catch (error: Throwable) {
+                runCatching { candidateConversation?.close() }
+                runCatching { candidate.close() }
+                throw error
+            }
         }
         val output = StringBuilder()
         val prompt = if (memoryContext.isBlank()) message else memoryContext + "\n\nUser message: " + message
@@ -138,12 +147,15 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
 
     suspend fun resetConversation() = withContext(dispatcher) {
         check(!closed) { "Local AI engine is closed." }
-        runCatching { conversation?.close() }
-        conversation = engine?.createConversation(
+        val activeEngine = engine ?: return@withContext
+        val replacement = activeEngine.createConversation(
             ConversationConfig(
                 systemInstruction = Contents.of(KairoPersonality.systemInstruction())
             )
         )
+        val previous = conversation
+        conversation = replacement
+        runCatching { previous?.close() }
     }
 
     override fun close() {
