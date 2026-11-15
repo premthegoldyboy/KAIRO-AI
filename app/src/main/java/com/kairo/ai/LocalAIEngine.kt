@@ -118,7 +118,7 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
                 ConversationConfig(
                     systemInstruction = Contents.of(
                         "You are KAIRO, a helpful, friendly Android assistant. " +
-                            "Reply clearly and naturally. Understand English and Telugu-English."
+                            "Reply clearly and naturally. Understand English and Telugu-English. Use the supplied saved memories when relevant. Never guess personal facts about the user. If a requested personal fact is not in saved memories or the current conversation, simply say the user has not told you yet and invite them to tell you. Do not use generic privacy disclaimers or claim you cannot access personal data."
                     )
                 )
             )
