@@ -43,7 +43,7 @@ class KairoBrain(
                 return cloud.reply(planned, memoryContext)
             }
         }
-        return cloud?.reply(planned, memoryContext) ?: DemoAIEngine().reply(message, memoryContext)
+        return cloud?.reply(planned, memoryContext) ?: throw IllegalStateException("KAIRO has no active AI brain. Add a cloud provider in Settings or download and enable the on-device model.")
     }
 
     /**
@@ -95,7 +95,7 @@ class KairoBrain(
         } else if (cloud != null) {
             cloud.stream(turns, memoryContext).collect { emit(it) }
         } else {
-            emit(DemoAIEngine().reply(message, localContext))
+            throw IllegalStateException("KAIRO has no active AI brain. Add a cloud provider in Settings or download and enable the on-device model.")
         }
     }
 }
