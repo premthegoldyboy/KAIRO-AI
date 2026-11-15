@@ -25,7 +25,7 @@ class KairoOfflineToolsTest {
         val answer = KairoToolExecutor.execute(
             KairoSkillRegistry.detect("analyze document: Hello world. తెలుగు వాక్యం!")
         )
-        assertTrue(answer.orEmpty().contains("Words: 5"))
+        assertTrue(answer.orEmpty().contains("Words: 4"))
         assertTrue(answer.orEmpty().contains("Sentences: 2"))
         assertTrue(answer.orEmpty().contains("Script: mixed"))
     }
