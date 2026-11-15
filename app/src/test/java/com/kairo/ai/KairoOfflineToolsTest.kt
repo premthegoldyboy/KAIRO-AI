@@ -27,7 +27,7 @@ class KairoOfflineToolsTest {
         )
         assertTrue(answer.orEmpty().contains("Words: 5"))
         assertTrue(answer.orEmpty().contains("Sentences: 2"))
-        assertTrue(answer.orEmpty().contains("MIXED"))
+        assertTrue(answer.orEmpty().contains("Script: mixed"))
     }
 
     @Test
