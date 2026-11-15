@@ -113,14 +113,17 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
  * Tries configured providers in order. Quota, rate-limit, timeout and service errors
  * move to the next provider. No provider is treated as unlimited.
  */
-class FailoverAIEngine(private val providers: List<AIProviderConfig>) : AIEngine {
+class FailoverAIEngine(
+    private val providers: List<AIProviderConfig>,
+    private val engineFactory: (AIProviderConfig) -> AIEngine = { OpenAICompatibleEngine(it) }
+) : AIEngine {
     override suspend fun reply(message: String, memoryContext: String): String {
         if (providers.isEmpty()) throw IllegalStateException("No cloud AI providers are configured.")
         val failures = mutableListOf<String>()
         val routedProviders = ProviderRouter.order(providers)
         for (provider in routedProviders) {
             try {
-                val answer = OpenAICompatibleEngine(provider).reply(message, memoryContext)
+                val answer = engineFactory(provider).reply(message, memoryContext)
                 ProviderRouter.recordSuccess(provider)
                 return answer
             } catch (cancel: CancellationException) {
