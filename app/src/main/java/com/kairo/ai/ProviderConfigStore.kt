@@ -18,9 +18,9 @@ class ProviderConfigStore(context: Context) {
     fun save(config: AIProviderConfig) = saveAll(listOf(config))
 
     fun saveAll(configs: List<AIProviderConfig>) {
-        require(configs.isNotEmpty()) { "At least one provider is required." }
+        require(configs.isNotEmpty()) { "At least one provider is required." }\n        require(configs.size <= 4) { "KAIRO supports up to four cloud providers." }\n        configs.forEach { config ->\n            require(config.baseUrl.length <= 2048 && config.model.length <= 200 && config.apiKey.length <= 4096) {\n                "Provider settings exceed the supported size limits."\n            }\n            require(config.model.isNotBlank() && config.apiKey.isNotBlank()) {\n                "Each provider needs a model name and API key."\n            }\n            ProviderEndpoints.chatCompletions(config.baseUrl, config.protocol.equals("anthropic", ignoreCase = true))\n        }
         val plain = org.json.JSONArray().apply {
-            configs.take(4).forEach { config ->
+            configs.forEach { config ->
                 put(org.json.JSONObject()
                     .put("baseUrl", config.baseUrl)
                     .put("model", config.model)
