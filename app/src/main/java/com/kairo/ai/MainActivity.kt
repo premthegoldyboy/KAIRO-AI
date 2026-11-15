@@ -192,6 +192,19 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
         }
     }
 
+    val textDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            screenReadStatus = "Reading selected text document…"
+            try {
+                val document = DocumentTextReader.read(context, uri)
+                input = "Please analyze this selected document (${document.name}):\n\n${document.text}"
+                screenReadStatus = "Imported ${document.name}. Review the content before sending."
+            } catch (error: Exception) {
+                screenReadStatus = "Could not import document: " + (error.message ?: "unknown error")
+            }
+        }
+    }
+
     val speechLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -366,6 +379,14 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     ) { Text("🎙", fontSize = 16.sp) }
                     Button(onClick = { input = if (input.isBlank()) "Help me define requirements for: " else "Create a requirements brief for: " + input }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("REQ", fontSize = 9.sp) }
                     Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
+                    Button(
+                        onClick = {
+                            textDocumentLauncher.launch(
+                                arrayOf("text/*", "application/json", "application/xml", "application/x-yaml")
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
+                    ) { Text("FILE", fontSize = 9.sp) }
                     Button(
                         enabled = !isThinking,
                         onClick = {
