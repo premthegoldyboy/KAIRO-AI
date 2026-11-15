@@ -21,7 +21,11 @@ object KairoSkillRegistry {
         Regex("(?i)^what is\\s+([0-9().+*/%\\-\\s]+)\\??$")
     )
     private val arithmeticOnly = Regex("^[0-9().+*/%\\-\\s]+$")
-    private val conversionPattern = Regex("(?i)^(?:convert\\s+)?([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)\\s+(?:to|in)\\s+([a-z°/]+)[?!.]*$")
+    private val conversionPatterns = listOf(
+        Regex("(?i)^(?:please\\s+)?(?:convert\\s+)?([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)\\s+(?:to|in|into)\\s+([a-z°/]+)[?!.]*$"),
+        Regex("(?i)^how\\s+many\\s+([a-z°/]+)\\s+(?:is|are)\\s+([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)[?!.]*$"),
+        Regex("(?i)^([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)\\s+ni\\s+([a-z°/]+)\\s+loki\\s+(?:convert\\s+)?(?:chey|cheyyi|cheyandi|cheyyandi)[?!.]*$")
+    )
     private val percentOfPattern = Regex("(?i)^(?:what is\\s+)?([0-9]+(?:\\.[0-9]+)?)\\s*%\\s+of\\s+([0-9]+(?:\\.[0-9]+)?)\\??$")
     private val vagueForgetTargets = setOf("it","that","this","about it","about that","nothing","everything","all","them","those","what i said","my last message")
     private val clearAllPhrases = setOf("forget all memories","clear all memories","delete all memories","anni memories marchipo","na memories anni marchipo")
@@ -58,8 +62,14 @@ object KairoSkillRegistry {
             return KairoSkillRequest(KairoSkillType.GENERAL)
         }
         if (lower.contains("what do you remember") || normalized in recallPhrases) return KairoSkillRequest(KairoSkillType.RECALL)
-        conversionPattern.matchEntire(text)?.let {
-            return KairoSkillRequest(KairoSkillType.CONVERT_UNITS, "${it.groupValues[1]}|${it.groupValues[2]}|${it.groupValues[3]}")
+        conversionPatterns.firstNotNullOfOrNull { it.matchEntire(text) }?.let { match ->
+            val groups = match.groupValues
+            val (value, from, to) = if (groups[1].firstOrNull()?.isLetter() == true) {
+                Triple(groups[2], groups[3], groups[1])
+            } else {
+                Triple(groups[1], groups[2], groups[3])
+            }
+            return KairoSkillRequest(KairoSkillType.CONVERT_UNITS, "$value|$from|$to")
         }
         percentOfPattern.matchEntire(text)?.let {
             val percent = it.groupValues[1]
