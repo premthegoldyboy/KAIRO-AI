@@ -76,4 +76,22 @@ class KairoToolExecutorTest {
         }
     }
 
+    @Test fun conversionAcceptsIntoWording() {
+        val request = KairoSkillRegistry.detect("5 km into miles")
+        assertEquals(KairoSkillType.CONVERT_UNITS, request.type)
+        assertEquals("5 km = 3.106856 mi", KairoToolExecutor.execute(request))
+    }
+
+    @Test fun conversionAcceptsQuestionForm() {
+        val request = KairoSkillRegistry.detect("how many miles is 5 km?")
+        assertEquals(KairoSkillType.CONVERT_UNITS, request.type)
+        assertEquals("5 km = 3.106856 mi", KairoToolExecutor.execute(request))
+    }
+
+    @Test fun conversionAcceptsTeluguEnglishCommand() {
+        val request = KairoSkillRegistry.detect("5 km ni miles loki convert chey")
+        assertEquals(KairoSkillType.CONVERT_UNITS, request.type)
+        assertEquals("5 km = 3.106856 mi", KairoToolExecutor.execute(request))
+    }
+
 }
