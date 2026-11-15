@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -107,6 +109,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     }
     var showSettings by remember { mutableStateOf(false) }
     var showMemoryManager by remember { mutableStateOf(false) }
+    var pendingAppLaunch by remember { mutableStateOf<String?>(null) }
     var memoryItems by remember { mutableStateOf(memoryStore.all()) }
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
@@ -248,9 +251,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 scope.launch {
                                     val openApp = Regex("(?i)^(?:please\\s+)?(?:open|launch|start)\\s+(.+)$").find(prompt)
                                     if (openApp != null) {
-                                        val result = AppLauncher.open(context, openApp.groupValues[1])
-                                        messages.add(ChatMessage(result, true))
-                                        onSpeak(result)
+                                        pendingAppLaunch = openApp.groupValues[1].trim()
+                                        messages.add(ChatMessage("I can open ${pendingAppLaunch}. Please confirm the action.", true))
                                         isThinking = false
                                         return@launch
                                     }
@@ -325,7 +327,10 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             onDismissRequest = { showSettings = false },
             title = { Text("AI PROVIDER SETTINGS") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text("MEMORY", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("KAIRO learns simple preferences automatically and saves anything you explicitly ask it to remember. Memories are encrypted on this device.", fontSize = 11.sp)
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
@@ -338,7 +343,20 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text("The key is encrypted on this device using Android Keystore. Never paste it into GitHub or share it in chat.", fontSize = 11.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("ON-DEVICE AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("Download compact SmolLM2 360M (about 374 MB). After downloading, KAIRO can chat offline without an API key. It is smaller but may be weaker at Telugu-English than larger models. Keep KAIRO open and use Wi-Fi.", fontSize = 11.sp)
+                    Text("AVAILABLE MODEL", color = Color(0xFF8195B5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("SmolLM2-360M-Instruct", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("360 million parameters • approximately 374 MB • runs on this phone • no API key", color = Color(0xFF9FB2D0), fontSize = 11.sp)
+                    Text(
+                        when {
+                            localModelReady && localAiEnabled -> "SELECTED: SmolLM2-360M-Instruct • ACTIVE"
+                            localModelReady -> "DOWNLOADED: SmolLM2-360M-Instruct • NOT ACTIVE"
+                            else -> "SELECTED MODEL: SmolLM2-360M-Instruct • NOT DOWNLOADED"
+                        },
+                        color = if (localModelReady && localAiEnabled) Color(0xFF72E6A5) else Color(0xFFFFD27A),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("This is currently the only bundled on-device model option. It is compact, so Telugu-English answers may be less capable than larger models. Keep KAIRO open and use Wi-Fi while downloading.", fontSize = 11.sp)
                     TextButton(
                         enabled = !isDownloadingModel && !localModelReady,
                         onClick = {
@@ -410,6 +428,31 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
         )
     }
 
+
+    if (pendingAppLaunch != null) {
+        AlertDialog(
+            onDismissRequest = { pendingAppLaunch = null },
+            title = { Text("CONFIRM APP LAUNCH") },
+            text = { Text("Allow KAIRO to open ${pendingAppLaunch}? No app will open until you confirm.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val requested = pendingAppLaunch
+                    pendingAppLaunch = null
+                    if (requested != null) {
+                        val result = AppLauncher.open(context, requested)
+                        messages.add(ChatMessage(result, true))
+                        onSpeak(result)
+                    }
+                }) { Text("OPEN APP") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingAppLaunch = null
+                    messages.add(ChatMessage("Cancelled. I did not open the app.", true))
+                }) { Text("CANCEL") }
+            }
+        )
+    }
 
     if (showMemoryManager) {
         AlertDialog(
