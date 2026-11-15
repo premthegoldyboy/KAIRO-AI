@@ -367,7 +367,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     memoryItems = memoryStore.all()
                                     val taskProfile = KairoTaskPlanner.classify(prompt)
                                     val aiPrompt = if (taskProfile.type == TaskType.REQUIREMENTS) KairoRequirementsAgent.enhance(prompt) else prompt
-                                    val liveResults = if (taskProfile.needsLiveData && researchApiKey.isNotBlank()) {
+                                    val liveResults = if (KairoTaskPlanner.shouldFetchLiveData(taskProfile, localAiEnabled, researchApiKey.isNotBlank())) {
                                         try { researchClient.search(prompt) } catch (error: Exception) {
                                             messages.add(ChatMessage("Live research failed: " + (error.message ?: "search error"), true))
                                             isThinking = false
