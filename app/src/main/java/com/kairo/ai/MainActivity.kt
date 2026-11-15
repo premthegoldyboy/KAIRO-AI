@@ -587,14 +587,14 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         }) {
                             Text("USE LOCAL AI", color = Color(0xFF70E9FF))
                         }
-                        if (providerConfigs.isNotEmpty()) {
-                            TextButton(onClick = {
-                                localAiEnabled = false
-                                aiModeStore.save(AIExecutionMode.CLOUD)
-                                showSettings = false
-                            }) {
-                                Text("USE CLOUD AI", color = Color(0xFF70E9FF))
-                            }
+                    }
+                    if (providerConfigs.isNotEmpty()) {
+                        TextButton(onClick = {
+                            localAiEnabled = false
+                            aiModeStore.save(AIExecutionMode.CLOUD)
+                            showSettings = false
+                        }) {
+                            Text("USE CLOUD AI", color = Color(0xFF70E9FF))
                         }
                     }
                 }
