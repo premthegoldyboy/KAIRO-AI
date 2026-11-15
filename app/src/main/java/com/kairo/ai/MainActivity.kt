@@ -316,7 +316,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 input = ""
                                 isThinking = true
                                 scope.launch {
-                                    val skillRequest = KairoSkillRegistry.detect(prompt)
+                                    try {
+                                        val skillRequest = KairoSkillRegistry.detect(prompt)
                                     val directToolAnswer = KairoToolExecutor.execute(skillRequest)
                                     if (directToolAnswer != null) {
                                         messages.add(ChatMessage(directToolAnswer, true))
@@ -435,6 +436,14 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         isThinking = false
                                     }
                                     onSpeak(messages[responseSlot].text)
+                                    } catch (cancel: CancellationException) {
+                                        throw cancel
+                                    } catch (error: Exception) {
+                                        messages.add(ChatMessage("KAIRO: " + (error.message ?: "Something went wrong. Please try again."), true))
+                                        conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
+                                    } finally {
+                                        isThinking = false
+                                    }
                                 }
                             }
                         },
