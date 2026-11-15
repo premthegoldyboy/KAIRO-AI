@@ -168,8 +168,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
         }
     }
     val chatListState = rememberLazyListState()
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) chatListState.animateScrollToItem(messages.lastIndex)
+    LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length) {
+        if (messages.isNotEmpty()) chatListState.scrollToItem(messages.lastIndex)
     }
     LaunchedEffect(messages.size) {
         conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
