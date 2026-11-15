@@ -10,7 +10,7 @@ class KairoBrain(
     override suspend fun reply(message: String, memoryContext: String): String {
         val cloudEngine = providers.takeIf { it.isNotEmpty() }?.let(::FailoverAIEngine)
         val specialist = KairoAgentRouter.route(message)
-        val plannedMessage = specialist.instruction + "\\n\\n" + KairoTaskPlanner.prepare(message)
+        val plannedMessage = specialist.instruction + "\n\n" + KairoTaskPlanner.prepare(message)
         val complexity = KairoTaskPlanner.complexity(message)
         // Use cloud for demanding multi-step work; keep simple requests local when selected.
         val cloudFirst = cloudEngine != null && (!preferLocal || complexity >= 2)
