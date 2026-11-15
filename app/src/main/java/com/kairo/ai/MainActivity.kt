@@ -392,10 +392,14 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 }
 
                 if (screenReadStatus.isNotBlank()) Text(screenReadStatus, color = Color(0xFF9FB2D0), fontSize = 11.sp)
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(Color(0xFF151F31), RoundedCornerShape(18.dp)).padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF151F31), RoundedCornerShape(18.dp))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                     BasicTextField(
                         value = input,
                         onValueChange = { input = it; listeningError = "" },
@@ -406,31 +410,6 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             inner()
                         }
                     )
-                    Button(
-                        onClick = {
-                            listeningError = ""
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to KAIRO")
-                                }
-                                runCatching { speechLauncher.launch(intent) }
-                                    .onFailure { listeningError = "Speech recognition isn't available on this device." }
-                            } else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
-                    ) { Text("🎙", fontSize = 16.sp) }
-                    Button(onClick = { input = if (input.isBlank()) "Help me define requirements for: " else "Create a requirements brief for: " + input }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("REQ", fontSize = 9.sp) }
-                    Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
-                    Button(
-                        onClick = {
-                            textDocumentLauncher.launch(
-                                arrayOf("text/*", "application/json", "application/xml", "application/x-yaml", "application/pdf")
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
-                    ) { Text("FILE", fontSize = 9.sp) }
                     Button(
                         enabled = !isThinking,
                         onClick = {
@@ -582,6 +561,43 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF087E9B))
                     ) { Text(if (isThinking) "..." else "SEND", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = {
+                                listeningError = ""
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to KAIRO")
+                                    }
+                                    runCatching { speechLauncher.launch(intent) }
+                                        .onFailure { listeningError = "Speech recognition isn't available on this device." }
+                                } else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        ) { Text("🎙", fontSize = 16.sp, color = Color(0xFF9FB2D0)) }
+                        TextButton(
+                            onClick = {
+                                input = if (input.isBlank()) "Help me define requirements for: "
+                                else "Create a requirements brief for: " + input
+                            }
+                        ) { Text("REQ", fontSize = 9.sp, color = Color(0xFF9FB2D0)) }
+                        TextButton(
+                            onClick = { screenImageLauncher.launch("image/*") }
+                        ) { Text("SCREEN", fontSize = 9.sp, color = Color(0xFF9FB2D0)) }
+                        TextButton(
+                            onClick = {
+                                textDocumentLauncher.launch(
+                                    arrayOf("text/*", "application/json", "application/xml", "application/x-yaml", "application/pdf")
+                                )
+                            }
+                        ) { Text("FILE", fontSize = 9.sp, color = Color(0xFF9FB2D0)) }
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
