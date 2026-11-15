@@ -136,6 +136,18 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
                 runCatching { candidate.close() }
                 throw error
             }
+        } else {
+            // MainActivity already supplies a bounded recent-turn context. Start a fresh
+            // native conversation for each request so stale turns cannot accumulate forever.
+            val activeEngine = checkNotNull(engine)
+            val replacement = activeEngine.createConversation(
+                ConversationConfig(
+                    systemInstruction = Contents.of(KairoPersonality.systemInstruction())
+                )
+            )
+            val previous = conversation
+            conversation = replacement
+            runCatching { previous?.close() }
         }
         val output = StringBuilder()
         val prompt = if (memoryContext.isBlank()) message else memoryContext + "\n\nUser message: " + message
