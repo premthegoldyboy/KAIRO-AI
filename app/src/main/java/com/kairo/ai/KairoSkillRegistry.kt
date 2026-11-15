@@ -18,9 +18,9 @@ object KairoSkillRegistry {
     )
     private val calculatePatterns = listOf(
         Regex("(?i)^(?:calculate|compute|solve)\\s+(.+)$"),
-        Regex("(?i)^what is\\s+([0-9().+*/%\\-\\s]+)\\??$")
+        Regex("(?i)^what is\\s+([0-9().+*/%^\\-\\s]+)\\??$")
     )
-    private val arithmeticOnly = Regex("^[0-9().+*/%\\-\\s]+$")
+    private val arithmeticOnly = Regex("^[0-9().+*/%^\\-\\s]+$")
     private val conversionPatterns = listOf(
         Regex("(?i)^(?:please\\s+)?(?:convert\\s+)?([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)\\s+(?:to|in|into)\\s+([a-z°/]+)[?!.]*$"),
         Regex("(?i)^how\\s+many\\s+([a-z°/]+)\\s+(?:is|are)\\s+([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)[?!.]*$"),
@@ -80,7 +80,7 @@ object KairoSkillRegistry {
             val expression = it.groupValues[1].trim().removeSuffix("?").trim()
             if (expression.isNotEmpty() && arithmeticOnly.matches(expression)) return KairoSkillRequest(KairoSkillType.CALCULATE, expression)
         }
-        if (arithmeticOnly.matches(text) && text.any { it in "+-*/%" } && text.any(Char::isDigit)) {
+        if (arithmeticOnly.matches(text) && text.any { it in "+-*/%^" } && text.any(Char::isDigit)) {
             return KairoSkillRequest(KairoSkillType.CALCULATE, text)
         }
         if (normalized in timePhrases) return KairoSkillRequest(KairoSkillType.CURRENT_TIME)

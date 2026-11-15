@@ -16,6 +16,30 @@ class KairoToolExecutorTest {
         assertEquals("The answer is 14.", calculate("2*(3+4)"))
     }
 
+    @Test fun exponentiationHasHigherPrecedenceThanMultiplication() {
+        assertEquals("The answer is 512.", calculate("2^3^2"))
+        assertEquals("The answer is 32.", calculate("2*2^3"))
+    }
+
+    @Test fun exponentiationSupportsNegativeExponentsAndUnaryMinus() {
+        assertEquals("The answer is 0.25.", calculate("2^-2"))
+        assertEquals("The answer is -4.", calculate("-2^2"))
+    }
+
+    @Test fun exponentiationIsRecognizedInNaturalLanguageAndBareExpressions() {
+        val natural = KairoSkillRegistry.detect("what is 2^3?")
+        assertEquals(KairoSkillType.CALCULATE, natural.type)
+        assertEquals("The answer is 8.", calculate(natural.argument))
+        val bare = KairoSkillRegistry.detect("2^3")
+        assertEquals(KairoSkillType.CALCULATE, bare.type)
+        assertEquals("The answer is 8.", calculate(bare.argument))
+    }
+
+    @Test fun exponentiationRejectsFractionalAndHugeExponents() {
+        assertTrue(calculate("2^1.5").contains("exponent must be a whole number"))
+        assertTrue(calculate("2^101").contains("exponent is outside the supported range"))
+    }
+
     @Test fun divisionByZeroIsHandledSafely() {
         assertTrue(calculate("5/0").contains("division by zero"))
     }

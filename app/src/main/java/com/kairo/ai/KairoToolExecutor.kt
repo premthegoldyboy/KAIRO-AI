@@ -51,18 +51,18 @@ object KairoToolExecutor {
         }
 
         private fun term(): BigDecimal {
-            var value = factor()
+            var value = unary()
             while (true) {
                 skipSpaces()
                 value = when {
-                    consume('*') -> value.multiply(factor(), MathContext.DECIMAL128)
+                    consume('*') -> value.multiply(unary(), MathContext.DECIMAL128)
                     consume('/') -> {
-                        val divisor = factor()
+                        val divisor = unary()
                         require(divisor.compareTo(BigDecimal.ZERO) != 0) { "division by zero is not allowed" }
                         value.divide(divisor, MathContext.DECIMAL128)
                     }
                     consume('%') -> {
-                        val divisor = factor()
+                        val divisor = unary()
                         require(divisor.compareTo(BigDecimal.ZERO) != 0) { "division by zero is not allowed" }
                         value.remainder(divisor, MathContext.DECIMAL128)
                     }
@@ -71,10 +71,33 @@ object KairoToolExecutor {
             }
         }
 
-        private fun factor(): BigDecimal {
+        private fun unary(): BigDecimal {
             skipSpaces()
-            if (consume('+')) return factor()
-            if (consume('-')) return factor().negate()
+            if (consume('+')) return unary()
+            if (consume('-')) return unary().negate()
+            return power()
+        }
+
+        private fun power(): BigDecimal {
+            var value = primary()
+            skipSpaces()
+            if (consume('^')) {
+                val exponent = unary().stripTrailingZeros()
+                require(exponent.scale() <= 0) { "exponent must be a whole number" }
+                val power = exponent.intValueExact()
+                require(power in -100..100) { "exponent is outside the supported range" }
+                if (power < 0) {
+                    require(value.compareTo(BigDecimal.ZERO) != 0) { "zero cannot have a negative exponent" }
+                    value = BigDecimal.ONE.divide(value.pow(-power, MathContext.DECIMAL128), MathContext.DECIMAL128)
+                } else {
+                    value = value.pow(power, MathContext.DECIMAL128)
+                }
+            }
+            return value
+        }
+
+        private fun primary(): BigDecimal {
+            skipSpaces()
             if (consume('(')) {
                 val nested = expression()
                 skipSpaces()
