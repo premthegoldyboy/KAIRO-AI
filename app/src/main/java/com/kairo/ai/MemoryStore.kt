@@ -71,7 +71,7 @@ class MemoryStore(context: Context) {
 
     /** Learn only explicit, low-risk facts and preferences stated by the user. */
     fun autoLearn(message: String): String? {
-        val name = Regex("(?i)^(?:hi[, ]+)?(?:i am|i'm|my name is)\\s+([A-Za-z][A-Za-z '-]{1,35})[.! ]*$").find(message.trim())
+        val name = Regex("(?i)^(?:hi[, ]+)?(?:i am|i'm|my name is)\\s+([A-Za-z][A-Za-z'-]{1,35})(?:\\s+and\\b|[.!?]|$)").find(message.trim())
         if (name != null) {
             val value = name.groupValues[1].trim().trimEnd('.')
             val memory = "Name: $value"
