@@ -98,7 +98,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val configStore = remember { ProviderConfigStore(context) }
     val memoryStore = remember { MemoryStore(context) }
-    var providerConfig by remember { mutableStateOf(configStore.load()) }
+    var providerConfigs by remember { mutableStateOf(configStore.loadAll()) }
+    var providerConfig by remember { mutableStateOf(providerConfigs.firstOrNull()) }
     var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
     var localAiEnabled by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
     var isDownloadingModel by remember { mutableStateOf(false) }
@@ -115,6 +116,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
     var providerKey by remember { mutableStateOf(providerConfig?.apiKey ?: "") }
+    var provider2Url by remember { mutableStateOf(providerConfigs.getOrNull(1)?.baseUrl ?: "") }
+    var provider2Model by remember { mutableStateOf(providerConfigs.getOrNull(1)?.model ?: "") }
+    var provider2Key by remember { mutableStateOf(providerConfigs.getOrNull(1)?.apiKey ?: "") }
+    var provider3Url by remember { mutableStateOf(providerConfigs.getOrNull(2)?.baseUrl ?: "") }
+    var provider3Model by remember { mutableStateOf(providerConfigs.getOrNull(2)?.model ?: "") }
+    var provider3Key by remember { mutableStateOf(providerConfigs.getOrNull(2)?.apiKey ?: "") }
     var settingsError by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -298,7 +305,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     memoryItems = memoryStore.all()
                                     val activeEngine: AIEngine = when {
                                         localAiEnabled && localModelReady -> localEngine
-                                        providerConfig != null -> OpenAICompatibleEngine(providerConfig!!)
+                                        providerConfigs.isNotEmpty() -> FailoverAIEngine(providerConfigs)
                                         else -> DemoAIEngine()
                                     }
                                     val answer = runCatching { activeEngine.reply(prompt, memoryStore.context()) }
@@ -316,7 +323,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 Text(
                     when {
                         localAiEnabled && localModelReady -> "VOICE INPUT IS USER-INITIATED • LOCAL AI"
-                        providerConfig != null -> "VOICE INPUT IS USER-INITIATED • CLOUD AI"
+                        providerConfigs.isNotEmpty() -> "VOICE INPUT IS USER-INITIATED • MULTI-PROVIDER CLOUD AI"
                         else -> "VOICE INPUT IS USER-INITIATED • DEMO MODE"
                     },
                     color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp
@@ -337,10 +344,19 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text("KAIRO learns simple preferences automatically and saves anything you explicitly ask it to remember. Memories are encrypted on this device.", fontSize = 11.sp)
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
                     Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("Configure an OpenAI-compatible service. Enter its HTTPS base URL, model name and API key.", fontSize = 12.sp)
+                    Text("Add up to three OpenAI-compatible providers. KAIRO tries them in order and moves to the next if one is unavailable or rate-limited. Each provider still has its own limits.", fontSize = 12.sp)
+                    Text("PRIMARY PROVIDER", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
                     OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
                     OutlinedTextField(value = providerKey, onValueChange = { providerKey = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    Text("BACKUP PROVIDER 1 (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(value = provider2Url, onValueChange = { provider2Url = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
+                    OutlinedTextField(value = provider2Model, onValueChange = { provider2Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
+                    OutlinedTextField(value = provider2Key, onValueChange = { provider2Key = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    Text("BACKUP PROVIDER 2 (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(value = provider3Url, onValueChange = { provider3Url = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
+                    OutlinedTextField(value = provider3Model, onValueChange = { provider3Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
+                    OutlinedTextField(value = provider3Key, onValueChange = { provider3Key = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     if (settingsError.isNotBlank()) Text(settingsError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
                     Text("The key is encrypted on this device using Android Keystore. Never paste it into GitHub or share it in chat.", fontSize = 11.sp)
                     Spacer(Modifier.height(8.dp))
@@ -404,11 +420,28 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val config = AIProviderConfig(providerUrl.trim(), providerModel.trim(), providerKey.trim())
-                    if (!config.baseUrl.startsWith("https://")) settingsError = "Base URL must start with https://"
-                    else if (config.model.isBlank() || config.apiKey.isBlank()) settingsError = "Please enter both model name and API key."
-                    else runCatching { configStore.save(config) }
-                        .onSuccess { providerConfig = config; localAiEnabled = false; showSettings = false; settingsError = "" }
+                    val entered = listOf(
+                        Triple(providerUrl, providerModel, providerKey),
+                        Triple(provider2Url, provider2Model, provider2Key),
+                        Triple(provider3Url, provider3Model, provider3Key)
+                    )
+                    val incomplete = entered.any { (url, model, key) ->
+                        (url.isNotBlank() || model.isNotBlank() || key.isNotBlank()) &&
+                            (url.isBlank() || model.isBlank() || key.isBlank())
+                    }
+                    val configs = entered.filter { it.first.isNotBlank() && it.second.isNotBlank() && it.third.isNotBlank() }
+                        .map { AIProviderConfig(it.first.trim(), it.second.trim(), it.third.trim()) }
+                    if (incomplete) settingsError = "Complete all three fields for each provider you use."
+                    else if (configs.any { !it.baseUrl.startsWith("https://") }) settingsError = "Every provider URL must start with https://"
+                    else if (configs.isEmpty()) settingsError = "Enter at least one provider."
+                    else runCatching { configStore.saveAll(configs) }
+                        .onSuccess {
+                            providerConfigs = configs
+                            providerConfig = configs.firstOrNull()
+                            localAiEnabled = false
+                            showSettings = false
+                            settingsError = ""
+                        }
                         .onFailure { settingsError = "Could not save securely: " + (it.message ?: "Unknown error") }
                 }) { Text("SAVE SECURELY") }
             },
@@ -417,10 +450,17 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     TextButton(onClick = {
                         configStore.clear()
                         providerConfig = null
+                        providerConfigs = emptyList()
                         localAiEnabled = false
                         providerUrl = ""
                         providerModel = ""
                         providerKey = ""
+                        provider2Url = ""
+                        provider2Model = ""
+                        provider2Key = ""
+                        provider3Url = ""
+                        provider3Model = ""
+                        provider3Key = ""
                         settingsError = ""
                         showSettings = false
                     }) { Text("USE DEMO") }
