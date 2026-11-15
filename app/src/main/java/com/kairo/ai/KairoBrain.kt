@@ -16,6 +16,7 @@ class KairoBrain(
     private val localReady: Boolean
 ) : AIEngine {
     override suspend fun reply(message: String, memoryContext: String): String {
+        validateProviderRequestSize(message, memoryContext)
         val profile = KairoTaskPlanner.classify(message)
         val planned = KairoTaskPlanner.prepare(message, profile)
 
@@ -52,6 +53,7 @@ class KairoBrain(
         localContext: String = memoryContext,
         liveDataAvailable: Boolean = false
     ): Flow<String> = flow {
+        validateProviderRequestSize(message, if (preferLocal) localContext else memoryContext)
         val profile = KairoTaskPlanner.classify(message)
         val planned = KairoTaskPlanner.prepare(message, profile, liveDataAvailable)
 
