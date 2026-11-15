@@ -7,7 +7,7 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 - Dark Compose chat interface, Android speech recognition initiated by the user, and user-toggleable Android text-to-speech responses.
 - Provider-independent AIEngine interface.
 - Configurable DeepSeek/xAI-compatible Chat Completions and Anthropic Messages adapters.
-- Sequential cloud-provider failover (availability and quotas remain provider-dependent).
+- Quota-aware cloud-provider failover with round-robin selection, temporary cooldowns after rate limits/authentication/service failures, and recovery after cooldown expiry (availability and quotas remain provider-dependent).
 - Adaptive local/cloud routing through KairoBrain.
 - Optional LiteRT-LM local model integration using a separately downloaded Qwen3 0.6B INT4 model.
 - Encrypted Android-Keystore-backed provider credentials and local memories; automatic preference learning is off by default and requires opt-in.
