@@ -21,7 +21,7 @@ object KairoSkillRegistry {
         Regex("(?i)^what is\\s+([0-9().+*/%\\-\\s]+)\\??$")
     )
     private val arithmeticOnly = Regex("^[0-9().+*/%\\-\\s]+$")
-    private val conversionPattern = Regex("(?i)^(?:convert\\s+)?([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°]+)\\s+(?:to|in)\\s+([a-z°]+)[?!.]*$")
+    private val conversionPattern = Regex("(?i)^(?:convert\\s+)?([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([a-z°/]+)\\s+(?:to|in)\\s+([a-z°/]+)[?!.]*$")
     private val percentOfPattern = Regex("(?i)^(?:what is\\s+)?([0-9]+(?:\\.[0-9]+)?)\\s*%\\s+of\\s+([0-9]+(?:\\.[0-9]+)?)\\??$")
     private val vagueForgetTargets = setOf("it","that","this","about it","about that","nothing","everything","all","them","those","what i said","my last message")
     private val clearAllPhrases = setOf("forget all memories","clear all memories","delete all memories","anni memories marchipo","na memories anni marchipo")
