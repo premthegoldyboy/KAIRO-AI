@@ -69,7 +69,8 @@ class WebResearchClient(private val context: Context) {
         require(key.isNotBlank()) { "Add a Tavily search API key in Settings to enable live research." }
         require(query.isNotBlank() && query.length <= 500) { "Enter a shorter research question." }
         val connection = (URL("https://api.tavily.com/search").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; connectTimeout = 8_000; readTimeout = 15_000
+            requestMethod = "POST"; instanceFollowRedirects = false
+            connectTimeout = 8_000; readTimeout = 15_000
             doInput = true
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
