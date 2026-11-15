@@ -229,19 +229,33 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     .background(Brush.verticalGradient(listOf(Color(0xFF101B31), Color(0xFF070B14))))
                     .padding(18.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("K A I R O", color = Color(0xFF70E9FF), fontSize = 25.sp, fontWeight = FontWeight.Black)
                         Text("SOVEREIGN INTELLIGENCE", color = Color(0xFF8195B5), fontSize = 10.sp, letterSpacing = 2.sp)
                     }
-                    TextButton(onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }) {
-                        Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
-                    }
-                    TextButton(onClick = { showClearChatDialog = true }) {
-                        Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
-                    }
                     TextButton(onClick = { showSettings = true }) {
                         Text("⚙ SETTINGS", color = Color(0xFF70E9FF), fontSize = 10.sp)
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }
+                    ) {
+                        Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
+                    }
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { showClearChatDialog = true }
+                    ) {
+                        Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
                     }
                 }
 
