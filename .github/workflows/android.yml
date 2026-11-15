@@ -6,9 +6,14 @@ on:
     branches: [ "main", "kairo/**" ]
   workflow_dispatch:
 
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
