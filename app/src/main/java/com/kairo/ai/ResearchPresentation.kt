@@ -5,9 +5,11 @@ import java.net.URI
 /** Keeps live-search references validated and visible instead of relying on model-generated citations. */
 object ResearchPresentation {
     fun safeHttpsUrl(raw: String): String? = runCatching {
-        val uri = URI(raw.trim())
+        val value = raw.trim()
+        if (value.isEmpty() || value.length > 2_048) return null
+        val uri = URI(value)
         if (!uri.scheme.equals("https", ignoreCase = true)) return null
-        if (uri.host.isNullOrBlank() || uri.userInfo != null) return null
+        if (uri.host.isNullOrBlank() || uri.userInfo != null || uri.port !in -1..65535) return null
         uri.toASCIIString()
     }.getOrNull()
 
