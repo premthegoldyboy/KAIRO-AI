@@ -66,7 +66,7 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
         while (true) {
             val value = reader.read()
             if (value < 0) return if (line.isEmpty()) null else line.toString()
-            if (value == '\\n'.code) return line.toString().removeSuffix("\\r")
+            if (value == '\n'.code) return line.toString().removeSuffix("\r")
             require(line.length < limit) { "Provider stream sent an oversized event line." }
             line.append(value.toChar())
         }
@@ -78,7 +78,7 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
         require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
         val turns = ChatTurn.normalize(history)
         require(turns.isNotEmpty()) { "Nothing to send." }
-        validateProviderRequestSize(turns.joinToString("\\n") { it.content }, memoryContext)
+        validateProviderRequestSize(turns.joinToString("\n") { it.content }, memoryContext)
 
         val anthropic = config.protocol.equals("anthropic", true)
         val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, anthropic)
