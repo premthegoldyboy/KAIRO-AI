@@ -95,6 +95,15 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val configStore = remember { ProviderConfigStore(context) }
     var providerConfig by remember { mutableStateOf(configStore.load()) }
+    var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
+    var localAiEnabled by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
+    var isDownloadingModel by remember { mutableStateOf(false) }
+    var modelDownloadProgress by remember { mutableStateOf(0) }
+    var modelDownloadError by remember { mutableStateOf("") }
+    val localEngine = remember { LocalAIEngine(context) }
+    DisposableEffect(localEngine) {
+        onDispose { localEngine.close() }
+    }
     var showSettings by remember { mutableStateOf(false) }
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
@@ -231,7 +240,11 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 input = ""
                                 isThinking = true
                                 scope.launch {
-                                    val activeEngine: AIEngine = providerConfig?.let { OpenAICompatibleEngine(it) } ?: DemoAIEngine()
+                                    val activeEngine: AIEngine = when {
+                                        providerConfig != null -> OpenAICompatibleEngine(providerConfig!!)
+                                        localAiEnabled && localModelReady -> localEngine
+                                        else -> DemoAIEngine()
+                                    }
                                     val answer = runCatching { activeEngine.reply(prompt) }
                                         .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
                                     messages.add(ChatMessage(answer, true))
@@ -245,8 +258,11 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    if (providerConfig == null) "VOICE INPUT IS USER-INITIATED • DEMO MODE"
-                    else "VOICE INPUT IS USER-INITIATED • CLOUD AI",
+                    when {
+                        providerConfig != null -> "VOICE INPUT IS USER-INITIATED • CLOUD AI"
+                        localAiEnabled && localModelReady -> "VOICE INPUT IS USER-INITIATED • LOCAL AI"
+                        else -> "VOICE INPUT IS USER-INITIATED • DEMO MODE"
+                    },
                     color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp
                 )
             }
@@ -258,12 +274,57 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             title = { Text("AI PROVIDER SETTINGS") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("Configure an OpenAI-compatible service. Enter its HTTPS base URL, model name and API key.", fontSize = 12.sp)
                     OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, singleLine = true)
                     OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
                     OutlinedTextField(value = providerKey, onValueChange = { providerKey = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     if (settingsError.isNotBlank()) Text(settingsError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
                     Text("The key is encrypted on this device using Android Keystore. Never paste it into GitHub or share it in chat.", fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("ON-DEVICE AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("Download Qwen3 0.6B (about 614 MB). After downloading, KAIRO can chat offline without an API key. Keep KAIRO open and use Wi-Fi.", fontSize = 11.sp)
+                    TextButton(
+                        enabled = !isDownloadingModel && !localModelReady,
+                        onClick = {
+                            isDownloadingModel = true
+                            modelDownloadProgress = 0
+                            modelDownloadError = ""
+                            scope.launch {
+                                try {
+                                    LocalModelManager.download(context) { progress ->
+                                        modelDownloadProgress = progress
+                                    }
+                                    localModelReady = true
+                                    localAiEnabled = true
+                                } catch (error: Exception) {
+                                    modelDownloadError = error.message ?: "Model download failed."
+                                } finally {
+                                    isDownloadingModel = false
+                                }
+                            }
+                        }
+                    ) {
+                        Text(
+                            when {
+                                localModelReady -> "✓ LOCAL MODEL DOWNLOADED"
+                                isDownloadingModel -> "DOWNLOADING…"
+                                else -> "DOWNLOAD LOCAL MODEL (614 MB)"
+                            },
+                            color = Color(0xFF70E9FF)
+                        )
+                    }
+                    if (isDownloadingModel) {
+                        Text("Downloading model: $modelDownloadProgress%", color = Color(0xFF9FB2D0), fontSize = 11.sp)
+                    }
+                    if (modelDownloadError.isNotBlank()) {
+                        Text(modelDownloadError, color = Color(0xFFFFB4AB), fontSize = 11.sp)
+                    }
+                    if (localModelReady) {
+                        TextButton(onClick = { localAiEnabled = true; showSettings = false }) {
+                            Text("USE LOCAL AI", color = Color(0xFF70E9FF))
+                        }
+                    }
                 }
             },
             confirmButton = {
