@@ -13,6 +13,11 @@ object KairoToolExecutor {
             val value = ArithmeticParser(request.argument).parse()
             "The answer is ${value.stripTrailingZeros().toPlainString()}."
         }.getOrElse { "I couldn't calculate that: ${it.message ?: "invalid expression"}." }
+        KairoSkillType.CONVERT_UNITS -> runCatching {
+            val parts = request.argument.split("|")
+            require(parts.size == 3) { "use a format such as: convert 5 km to miles" }
+            KairoUnitConverter.convert(parts[0], parts[1], parts[2])
+        }.getOrElse { "I couldn't convert that: ${it.message ?: "unsupported conversion"}." }
         KairoSkillType.CURRENT_TIME -> {
             val now = ZonedDateTime.now()
             "It's " + now.format(DateTimeFormatter.ofPattern("h:mm a z", Locale.getDefault())) +
