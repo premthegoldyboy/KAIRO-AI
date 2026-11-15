@@ -1,6 +1,6 @@
 package com.kairo.ai
 
-enum class TaskType { SIMPLE, REASONING, MATH, CODING, NEWS, RESEARCH, TRANSLATION, PLANNING, MEMORY, TOOL }
+enum class TaskType { SIMPLE, REASONING, MATH, CODING, NEWS, RESEARCH, TRANSLATION, PLANNING, REQUIREMENTS, MEMORY, TOOL }
 
 data class TaskProfile(
     val type: TaskType,
@@ -31,6 +31,7 @@ object KairoTaskPlanner {
     private val liveWords = words("latest","right now","this week","this month","price of","prices","stock price","weather",
         "release date","new version","currently","current price","who is the","ceo of","president of","prime minister of","who won","score","scores")
     private val planningWords = words("plan","planning","roadmap","itinerary","schedule","timeline","strategy","checklist")
+    private val requirementsWords = words("requirement","requirements","acceptance criteria","user stories","product requirements","functional requirements","non-functional requirements","prd","specification","specifications")
     private val reasoningWords = words("analyze","analyse","compare","versus","vs","pros and cons","trade-off","trade-offs",
         "tradeoff","tradeoffs","explain why","why does","why do","why is","architecture","design","evaluate","difference between")
     private val explainWords = words("explain","teach","how does","how do")
@@ -43,6 +44,7 @@ object KairoTaskPlanner {
             KairoSkillType.REMEMBER, KairoSkillType.FORGET, KairoSkillType.RECALL -> TaskType.MEMORY
             KairoSkillType.OPEN_APP, KairoSkillType.CALCULATE, KairoSkillType.CURRENT_TIME -> TaskType.TOOL
             KairoSkillType.GENERAL -> when {
+                requirementsWords.containsMatchIn(text) -> TaskType.REQUIREMENTS
                 codingWords.containsMatchIn(text) || text.contains("```") -> TaskType.CODING
                 mathWords.containsMatchIn(text) || mathExpression.containsMatchIn(text) -> TaskType.MATH
                 translationWords.containsMatchIn(text) || translationPhrase.containsMatchIn(text) -> TaskType.TRANSLATION
@@ -58,7 +60,7 @@ object KairoTaskPlanner {
         val complexity = when (type) {
             TaskType.SIMPLE, TaskType.MEMORY, TaskType.TOOL -> if (explainWords.containsMatchIn(text)) 1 else 0
             TaskType.TRANSLATION -> 2
-            TaskType.MATH, TaskType.CODING, TaskType.PLANNING, TaskType.REASONING, TaskType.NEWS -> 2
+            TaskType.MATH, TaskType.CODING, TaskType.PLANNING, TaskType.REASONING, TaskType.NEWS, TaskType.REQUIREMENTS -> 2
             TaskType.RESEARCH -> 3
         } + if (text.length > 420 || text.count { it == '?' } >= 2) 1 else 0
         return TaskProfile(type, complexity.coerceAtMost(3), needsLive, language)
@@ -82,6 +84,7 @@ object KairoTaskPlanner {
             "Diagnose the likely cause first. Separate confirmed facts from hypotheses, then give the smallest safe fix and a verification step."
         else "Break the implementation into ordered steps. State assumptions, give a practical solution, and include how to verify it."
         TaskType.PLANNING -> "Create a realistic ordered plan. Identify dependencies, milestones, and the next concrete action."
+        TaskType.REQUIREMENTS -> "Create a structured, testable requirements brief. Separate confirmed facts, assumptions, scope, acceptance criteria, risks, and open questions. Ask at most one essential clarification question."
         TaskType.REASONING -> "Compare or analyse against clear criteria, explain trade-offs, and give a reasoned conclusion."
         TaskType.MATH -> "Work step by step, show the calculation, and double-check the final number before answering."
         TaskType.TRANSLATION -> "Translate faithfully, keep the tone, and note ambiguous words. If the user wrote Telugu in English letters, give the translation in English letters too."
