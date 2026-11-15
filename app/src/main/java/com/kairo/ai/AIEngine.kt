@@ -42,10 +42,9 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
             try {
                 val payload = JSONObject()
                     .put("model", config.model)
-                    .put("messages", org.json.JSONArray().put(
-                        JSONObject().put("role", "system").put("content", "You are KAIRO, a helpful Android assistant. Use saved memories only when relevant.\n" + memoryContext),
-                    JSONObject().put("role", "user").put("content", message)
-                    ))
+                    .put("messages", org.json.JSONArray()
+                        .put(JSONObject().put("role", "system").put("content", "You are KAIRO, a helpful Android assistant. Use saved memories only when relevant.\\n" + memoryContext))
+                        .put(JSONObject().put("role", "user").put("content", message)))
                 connection.outputStream.use {
                     it.write(payload.toString().toByteArray(Charsets.UTF_8))
                 }
