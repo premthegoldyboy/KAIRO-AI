@@ -16,7 +16,7 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 - Local inference uses a bounded recent-turn context and starts a fresh native conversation per request to prevent unbounded stale history. Explicit Remember commands work regardless of the optional automatic preference-learning setting.
 - Task planning prompts for build, debug, plan, compare, and explain requests.
 - Specialist-agent registry for software development, research, planning, analysis, tutoring, translation, requirements, and general assistance. These profiles use the selected AI engine; they are not separate hosted models.
-- Deterministic offline calculator, unit converter (length, mass, volume, and temperature), and device date/time tools.
+- Deterministic offline calculator, unit converter (length, area, mass, volume, speed, data size, and temperature), and device date/time tools.
 - App launching only after the user confirms the requested action.
 - Telugu-English command recognition for selected memory skills.
 - User-selected TXT, Markdown, CSV, JSON, XML, and source-code text import, bounded to 24 KB, plus PDF OCR on-device (up to 5 MB and 5 pages); extracted content is shown in the composer for review before sending.
