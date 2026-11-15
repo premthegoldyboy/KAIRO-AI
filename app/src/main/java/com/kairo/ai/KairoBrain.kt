@@ -25,7 +25,7 @@ class KairoBrain(
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (cloudError: Exception) {
-                if (!localReady) throw cloudError
+                if (!localActive) throw cloudError
                 return try { localEngine.reply(planned, memoryContext) }
                 catch (cancel: CancellationException) { throw cancel }
                 catch (_: Exception) { throw cloudError }
@@ -78,7 +78,7 @@ class KairoBrain(
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (cloudError: Exception) {
-                if (emitted || !localReady) throw cloudError
+                if (emitted || !localActive) throw cloudError
                 emitLocal()
             }
         } else if (localActive) {
