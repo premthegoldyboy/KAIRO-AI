@@ -564,34 +564,39 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                    Button(
-                        onClick = {
-                            listeningError = ""
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to KAIRO")
-                                }
-                                runCatching { speechLauncher.launch(intent) }
-                                    .onFailure { listeningError = "Speech recognition isn't available on this device." }
-                            } else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
-                    ) { Text("🎙", fontSize = 16.sp) }
-                    Button(onClick = { input = if (input.isBlank()) "Help me define requirements for: " else "Create a requirements brief for: " + input }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("REQ", fontSize = 9.sp) }
-                    Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
-                    Button(
-                        onClick = {
-                            textDocumentLauncher.launch(
-                                arrayOf("text/*", "application/json", "application/xml", "application/x-yaml", "application/pdf")
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
-                    ) { Text("FILE", fontSize = 9.sp) }
+                        TextButton(
+                            onClick = {
+                                listeningError = ""
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to KAIRO")
+                                    }
+                                    runCatching { speechLauncher.launch(intent) }
+                                        .onFailure { listeningError = "Speech recognition isn't available on this device." }
+                                } else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        ) { Text("🎙", fontSize = 16.sp, color = Color(0xFF9FB2D0)) }
+                        TextButton(
+                            onClick = {
+                                input = if (input.isBlank()) "Help me define requirements for: "
+                                else "Create a requirements brief for: " + input
+                            }
+                        ) { Text("REQ", fontSize = 9.sp, color = Color(0xFF9FB2D0)) }
+                        TextButton(
+                            onClick = { screenImageLauncher.launch("image/*") }
+                        ) { Text("SCREEN", fontSize = 9.sp, color = Color(0xFF9FB2D0)) }
+                        TextButton(
+                            onClick = {
+                                textDocumentLauncher.launch(
+                                    arrayOf("text/*", "application/json", "application/xml", "application/x-yaml", "application/pdf")
+                                )
+                            }
+                        ) { Text("FILE", fontSize = 9.sp, color = Color(0xFF9FB2D0)) }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
