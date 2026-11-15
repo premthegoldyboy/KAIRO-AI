@@ -543,7 +543,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         provider3Key = ""
                         settingsError = ""
                         showSettings = false
-                    }) { Text("USE DEMO") }
+                    }) { Text("CLEAR CLOUD PROVIDERS") }
                     TextButton(onClick = { showSettings = false }) { Text("CANCEL") }
                 }
             }
