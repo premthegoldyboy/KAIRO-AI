@@ -291,6 +291,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
                     ) { Text("🎙", fontSize = 16.sp) }
+                    Button(onClick = { input = if (input.isBlank()) "Help me define requirements for: " else "Create a requirements brief for: " + input }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("REQ", fontSize = 9.sp) }
                     Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
                     Button(
                         onClick = {
@@ -350,6 +351,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     memoryStore.autoLearn(prompt)
                                     memoryItems = memoryStore.all()
                                     val taskProfile = KairoTaskPlanner.classify(prompt)
+                                    val aiPrompt = if (taskProfile.type == TaskType.REQUIREMENTS) KairoRequirementsAgent.enhance(prompt) else prompt
                                     val liveResults = if (taskProfile.needsLiveData && researchApiKey.isNotBlank()) {
                                         try { researchClient.search(prompt) } catch (error: Exception) {
                                             messages.add(ChatMessage("Live research failed: " + (error.message ?: "search error"), true))
@@ -388,7 +390,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     val responseSlot = messages.lastIndex
                                     val responseBuffer = StringBuilder()
                                     try {
-                                        kairoBrain.replyStream(prompt, history, savedMemory, localContext, liveResults.isNotEmpty()).collect { chunk ->
+                                        kairoBrain.replyStream(aiPrompt, history, savedMemory, localContext, liveResults.isNotEmpty()).collect { chunk ->
                                             responseBuffer.append(chunk)
                                             messages[responseSlot] = ChatMessage(responseBuffer.toString(), true)
                                         }

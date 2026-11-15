@@ -28,6 +28,18 @@ class KairoRoutingTest {
     @Test fun translationUsesCloud() = assertTrue(KairoTaskPlanner.classify("translate good morning to telugu").preferCloud)
     @Test fun wordProblemIsMath() = assertEquals(TaskType.MATH, KairoTaskPlanner.classify("solve 2x+3=7").type)
     @Test fun planningIsDetected() = assertEquals(TaskType.PLANNING, KairoTaskPlanner.classify("plan my week").type)
+    @Test fun requirementsRequestsUseDedicatedAgentRoute() {
+        val profile = KairoTaskPlanner.classify("write requirements and acceptance criteria for a study app")
+        assertEquals(TaskType.REQUIREMENTS, profile.type)
+        assertTrue(profile.preferCloud)
+    }
+    @Test fun requirementsAgentAddsStructuredAndTestableInstructions() {
+        val prompt = KairoRequirementsAgent.enhance("Build a study planner")
+        assertTrue(prompt.contains("FR-01"))
+        assertTrue(prompt.contains("Given / When / Then"))
+        assertTrue(prompt.contains("Build a study planner"))
+        assertTrue(prompt.contains("single most important"))
+    }
     @Test fun greetingStaysLocal() {
         val p = KairoTaskPlanner.classify("hello")
         assertEquals(TaskType.SIMPLE, p.type)
