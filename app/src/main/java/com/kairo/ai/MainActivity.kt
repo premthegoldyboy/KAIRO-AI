@@ -152,6 +152,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var autoLearnEnabled by remember {
         mutableStateOf(memoryLearningPrefs.getBoolean("enabled", false))
     }
+    val voiceOutputPrefs = remember {
+        context.getSharedPreferences("kairo_voice_output", android.content.Context.MODE_PRIVATE)
+    }
+    var voiceResponsesEnabled by remember {
+        mutableStateOf(voiceOutputPrefs.getBoolean("enabled", true))
+    }
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
     var providerKey by remember { mutableStateOf(providerConfig?.apiKey ?: "") }
@@ -443,7 +449,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     val directToolAnswer = KairoToolExecutor.execute(skillRequest)
                                     if (directToolAnswer != null) {
                                         messages.add(ChatMessage(directToolAnswer, true))
-                                        onSpeak(directToolAnswer)
+                                        if (voiceResponsesEnabled) onSpeak(directToolAnswer)
                                         isThinking = false
                                         return@launch
                                     }
@@ -482,7 +488,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     }
                                     if (memoryAnswer != null) {
                                         messages.add(ChatMessage(memoryAnswer, true))
-                                        onSpeak(memoryAnswer)
+                                        if (voiceResponsesEnabled) onSpeak(memoryAnswer)
                                         isThinking = false
                                         return@launch
                                     }
@@ -559,7 +565,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         })
                                         isThinking = false
                                     }
-                                    onSpeak(messages[responseSlot].text)
+                                    if (voiceResponsesEnabled) onSpeak(messages[responseSlot].text)
                                     } catch (cancel: CancellationException) {
                                         throw cancel
                                     } catch (error: Exception) {
@@ -634,6 +640,22 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                 ) {
                     Text("MEMORY", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("KAIRO saves explicit memories and a limited recent chat history. Both are encrypted on this device. Recent chat context may be sent to whichever cloud provider answers your request.", fontSize = 11.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("VOICE RESPONSES", color = Color(0xFFEAF2FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Speak KAIRO's replies aloud automatically.", color = Color(0xFF9FB2D0), fontSize = 10.sp)
+                        }
+                        Switch(
+                            checked = voiceResponsesEnabled,
+                            onCheckedChange = { enabled ->
+                                voiceResponsesEnabled = enabled
+                                voiceOutputPrefs.edit().putBoolean("enabled", enabled).apply()
+                            }
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -852,7 +874,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     if (requested != null) {
                         val result = if (KairoActionPolicy.mayExecute(KairoAction.OPEN_INSTALLED_APP, true)) AppLauncher.open(context, requested) else "KAIRO blocked an unapproved action."
                         messages.add(ChatMessage(result, true))
-                        onSpeak(result)
+                        if (voiceResponsesEnabled) onSpeak(result)
                     }
                 }) { Text("OPEN APP") }
             },

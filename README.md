@@ -4,7 +4,7 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 
 ## Implemented foundation
 
-- Dark Compose chat interface, Android speech recognition initiated by the user, and Android text-to-speech.
+- Dark Compose chat interface, Android speech recognition initiated by the user, and user-toggleable Android text-to-speech responses.
 - Provider-independent AIEngine interface.
 - Configurable DeepSeek/xAI-compatible Chat Completions and Anthropic Messages adapters.
 - Sequential cloud-provider failover (availability and quotas remain provider-dependent).
