@@ -52,8 +52,28 @@ class MemoryStore(context: Context) {
         ?.joinToString("\n", prefix = "Relevant saved memories about the user (use only when relevant):\n") { "- $it" }
         .orEmpty()
 
+    /** Answer a small set of explicit personal-fact questions from saved memory, never by guessing. */
+    fun answerPersonalFact(message: String): String? {
+        val asksFavouriteColour = Regex(
+            "(?i)\\b(?:what(?:'s| is)|do you know)\\s+my\\s+(?:favou?rite)\\s+colou?r\\b"
+        ).containsMatchIn(message)
+        if (!asksFavouriteColour) return null
+        val saved = all().firstOrNull { it.startsWith("Favourite colour:", ignoreCase = true) }
+        return if (saved != null) {
+            "Your favourite colour is ${saved.substringAfter(':').trim()}."
+        } else {
+            "You haven't told me your favourite colour yet. Tell me, for example, “My favourite colour is blue”, and I'll remember it."
+        }
+    }
+
     /** Only explicit low-risk preference wording is eligible for automatic memory. */
     fun autoLearn(message: String): String? {
+        val colour = Regex("(?i)\\bmy\\s+favou?rite\\s+colou?r\\s+is\\s+([^.!?]{3,40})").find(message)
+        if (colour != null) {
+            val value = colour.groupValues[1].trim()
+            val memory = "Favourite colour: $value"
+            return if (remember(memory)) memory else null
+        }
         val patterns = listOf(
             Regex("(?i)\\bI prefer ([^.!?]{3,100})"),
             Regex("(?i)\\bI like ([^.!?]{3,100})"),
