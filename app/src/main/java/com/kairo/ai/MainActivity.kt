@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 private data class ChatMessage(val text: String, val fromKairo: Boolean)
@@ -321,11 +323,14 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         preferLocal = localAiEnabled,
                                         localReady = localModelReady
                                     )
-                                    val recentConversation = messages.takeLast(8).joinToString("\n") { entry ->
+                                    val savedMemory = memoryStore.context(prompt)
+                                    val history = messages.dropLast(1).takeLast(12).map {
+                                        ChatTurn(if (it.fromKairo) "assistant" else "user", it.text)
+                                    }
+                                    val recentConversation = messages.dropLast(1).takeLast(8).joinToString("\n") { entry ->
                                         (if (entry.fromKairo) "KAIRO: " else "User: ") + entry.text.take(1200)
                                     }
-                                    val assistantContext = buildString {
-                                        val savedMemory = memoryStore.context(prompt)
+                                    val localContext = buildString {
                                         if (savedMemory.isNotBlank()) append(savedMemory)
                                         if (recentConversation.isNotBlank()) {
                                             if (isNotEmpty()) append("\n\n")
@@ -333,11 +338,29 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                             append(recentConversation)
                                         }
                                     }
-                                    val answer = runCatching { kairoBrain.reply(prompt, assistantContext) }
-                                        .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
-                                    messages.add(ChatMessage(answer, true))
-                                    onSpeak(answer)
-                                    isThinking = false
+                                    messages.add(ChatMessage("", true))
+                                    val responseSlot = messages.lastIndex
+                                    val responseBuffer = StringBuilder()
+                                    try {
+                                        kairoBrain.replyStream(prompt, history, savedMemory, localContext).collect { chunk ->
+                                            responseBuffer.append(chunk)
+                                            messages[responseSlot] = ChatMessage(responseBuffer.toString(), true)
+                                        }
+                                        if (responseBuffer.isBlank()) {
+                                            messages[responseSlot] = ChatMessage("The AI provider returned an empty response.", true)
+                                        }
+                                    } catch (cancel: CancellationException) {
+                                        throw cancel
+                                    } catch (error: Exception) {
+                                        val note = "KAIRO: " + (error.message ?: "Something went wrong. Please try again.")
+                                        messages[responseSlot] = ChatMessage(
+                                            if (responseBuffer.isBlank()) note else responseBuffer.toString() + "\n\n[" + note + "]",
+                                            true
+                                        )
+                                    } finally {
+                                        isThinking = false
+                                    }
+                                    onSpeak(messages[responseSlot].text)
                                 }
                             }
                         },

@@ -77,7 +77,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                     (0 until (blocks?.length() ?: 0)).mapNotNull { index ->
                         blocks?.optJSONObject(index)?.takeIf { it.optString("type") == "text" }
                             ?.optString("text")?.takeIf { it.isNotBlank() }
-                    }.joinToString("\\n")
+                    }.joinToString("\n")
                 } else JSONObject(body).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content").orEmpty()
                 answer.trim().takeIf { it.isNotBlank() } ?: "The AI provider returned an empty response."

@@ -1,6 +1,8 @@
 name: Build KAIRO Android APK
 
 on:
+  pull_request:
+    branches: [ "main" ]
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -16,6 +18,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Run JVM unit tests
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: "8.13"
+          arguments: testDebugUnitTest
       - name: Build debug APK
         uses: gradle/gradle-build-action@v3
         with:
