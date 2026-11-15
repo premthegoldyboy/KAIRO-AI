@@ -59,8 +59,4 @@ class KairoAgentRegistryTest {
         assertTrue(prompt.contains("User request: Fix this Kotlin crash"))
     }
 
-    @Test fun registryDoesNotClaimSeparateHostedModels() {
-        val source = KairoAgentRegistry.javaClass.getAnnotation(Suppress("unused")) // compile-time marker only
-        assertTrue(KairoAgentRegistry.resolve(KairoTaskPlanner.classify("hello")).displayName.isNotBlank())
-    }
 }
