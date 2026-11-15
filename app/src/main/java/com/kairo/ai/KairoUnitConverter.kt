@@ -45,8 +45,8 @@ object KairoUnitConverter {
         add(unit("ml", "volume", "0.001"), "milliliter", "milliliters", "millilitre", "millilitres")
         add(unit("gal", "volume", "3.785411784"), "gallon", "gallons", "usgal")
 
-        add(unit("c", "temperature", "1", "273.15"), "°c", "celsius", "centigrade")
-        add(unit("f", "temperature", "0.5555555555555555555555555555555556", "459.67"), "°f", "fahrenheit")
+        add(unit("°C", "temperature", "1", "273.15"), "c", "celsius", "centigrade")
+        add(unit("°F", "temperature", "0.5555555555555555555555555555555556", "459.67"), "f", "fahrenheit")
         add(unit("k", "temperature", "1"), "kelvin", "kelvins")
     }
 
