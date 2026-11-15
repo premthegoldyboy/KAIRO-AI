@@ -53,6 +53,18 @@ class KairoRoutingTest {
         assertTrue(KairoTaskPlanner.prepare("ela unnav", p).contains("Telugu"))
     }
     @Test fun liveQuestionWarnsModelItHasNoBrowsing() = assertTrue(KairoTaskPlanner.prepare("latest AI news today").contains("cannot browse"))
+    @Test fun localModeNeverSendsLiveSearchRequests() {
+        val profile = KairoTaskPlanner.classify("latest AI news today")
+        assertFalse(KairoTaskPlanner.shouldFetchLiveData(profile, localMode = true, hasSearchKey = true))
+    }
+    @Test fun cloudModeCanUseLiveSearchWhenConfigured() {
+        val profile = KairoTaskPlanner.classify("latest AI news today")
+        assertTrue(KairoTaskPlanner.shouldFetchLiveData(profile, localMode = false, hasSearchKey = true))
+    }
+    @Test fun missingSearchKeyNeverStartsLiveSearch() {
+        val profile = KairoTaskPlanner.classify("latest AI news today")
+        assertFalse(KairoTaskPlanner.shouldFetchLiveData(profile, localMode = false, hasSearchKey = false))
+    }
     @Test fun simpleChatIsNotWrapped() = assertEquals("hello", KairoTaskPlanner.prepare("hello"))
 
     @Test fun timeQuestionWithQuestionMark() = assertEquals(KairoSkillType.CURRENT_TIME, KairoSkillRegistry.detect("What time is it?").type)
