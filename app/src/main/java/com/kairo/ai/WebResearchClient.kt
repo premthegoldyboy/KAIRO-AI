@@ -84,7 +84,9 @@ class WebResearchClient(private val context: Context) {
             val status = connection.responseCode
             if (status !in 200..299) {
                 val errorBody = runCatching {
-                    (connection.errorStream ?: connection.inputStream).bufferedReader().use { it.readText() }
+                    (connection.errorStream ?: connection.inputStream).use { input ->
+                        readBounded(input, MAX_RESPONSE_BYTES).toString(Charsets.UTF_8)
+                    }
                 }.getOrDefault("")
                 val detail = when (status) {
                     401, 403 -> "The search key was rejected. Check the Tavily key."
