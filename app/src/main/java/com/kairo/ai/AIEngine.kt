@@ -11,19 +11,6 @@ interface AIEngine {
     suspend fun reply(message: String, memoryContext: String = ""): String
 }
 
-class DemoAIEngine : AIEngine {
-    override suspend fun reply(message: String, memoryContext: String): String {
-        val text = message.trim()
-        if (text.isBlank()) return "I'm listening. What would you like to do?"
-        return when {
-            text.contains("hello", true) || text.contains("hi", true) ->
-                "Hello! KAIRO systems are online. How can I help?"
-            text.contains("namaste", true) -> "Namaste! Ela unnaru? I'm ready to help."
-            else -> "I received: “$text”. Demo mode is active. Add a compatible AI provider in Settings to enable live AI."
-        }
-    }
-}
-
 /**
  * Provider adapter. DeepSeek and xAI use Chat Completions; Anthropic uses its
  * native Messages API so Claude does not depend on the compatibility layer.
@@ -36,12 +23,12 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
             require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
             val systemPrompt = KairoPersonality.systemInstruction(memoryContext)
             val isAnthropic = config.protocol.equals("anthropic", ignoreCase = true)
-            val endpoint = if (isAnthropic) config.baseUrl.trimEnd('/') + "/v1/messages"
-                else config.baseUrl.trimEnd('/') + "/chat/completions"
+            val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, isAnthropic)
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = 6_000
-                readTimeout = 18_000
+                connectTimeout = 10_000
+                readTimeout = 60_000
+                doInput = true
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
                 if (isAnthropic) {
