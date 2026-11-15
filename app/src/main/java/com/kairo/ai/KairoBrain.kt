@@ -9,37 +9,38 @@ class KairoBrain(
 ) : AIEngine {
     override suspend fun reply(message: String, memoryContext: String): String {
         val cloudEngine = providers.takeIf { it.isNotEmpty() }?.let(::FailoverAIEngine)
-        val complexity = estimateComplexity(message)
+        val plannedMessage = KairoTaskPlanner.prepare(message)
+        val complexity = KairoTaskPlanner.complexity(message)
         // Use cloud for demanding multi-step work; keep simple requests local when selected.
         val cloudFirst = cloudEngine != null && (!preferLocal || complexity >= 2)
 
         if (cloudFirst) {
             return try {
-                cloudEngine.reply(message, memoryContext)
+                cloudEngine.reply(plannedMessage, memoryContext)
             } catch (cloudError: Exception) {
                 if (!localReady) throw cloudError
-                runCatching { localEngine.reply(message, memoryContext) }.getOrElse { throw cloudError }
+                runCatching { localEngine.reply(plannedMessage, memoryContext) }.getOrElse { throw cloudError }
             }
         }
         if (preferLocal && localReady) {
             return try {
-                localEngine.reply(message, memoryContext)
+                localEngine.reply(plannedMessage, memoryContext)
             } catch (localError: Exception) {
                 if (cloudEngine == null) throw IllegalStateException(
                     "KAIRO's on-device brain couldn't answer: ${localError.message ?: "unknown error"}"
                 )
-                cloudEngine.reply(message, memoryContext)
+                cloudEngine.reply(plannedMessage, memoryContext)
             }
         }
         if (cloudEngine != null) {
             return try {
-                cloudEngine.reply(message, memoryContext)
+                cloudEngine.reply(plannedMessage, memoryContext)
             } catch (cloudError: Exception) {
                 if (!localReady) throw cloudError
-                runCatching { localEngine.reply(message, memoryContext) }.getOrElse { throw cloudError }
+                runCatching { localEngine.reply(plannedMessage, memoryContext) }.getOrElse { throw cloudError }
             }
         }
-        return DemoAIEngine().reply(message, memoryContext)
+        return DemoAIEngine().reply(plannedMessage, memoryContext)
     }
 
     private fun estimateComplexity(message: String): Int {

@@ -258,6 +258,13 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 isThinking = true
                                 scope.launch {
                                     val skillRequest = KairoSkillRegistry.detect(prompt)
+                                    val directToolAnswer = KairoToolExecutor.execute(skillRequest)
+                                    if (directToolAnswer != null) {
+                                        messages.add(ChatMessage(directToolAnswer, true))
+                                        onSpeak(directToolAnswer)
+                                        isThinking = false
+                                        return@launch
+                                    }
                                     if (skillRequest.type == KairoSkillType.OPEN_APP) {
                                         pendingAppLaunch = skillRequest.argument
                                         messages.add(ChatMessage("I can open ${pendingAppLaunch}. Please confirm the action.", true))
