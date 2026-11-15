@@ -128,6 +128,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
     var providerModel by remember { mutableStateOf(providerConfig?.model ?: "") }
     var providerKey by remember { mutableStateOf(providerConfig?.apiKey ?: "") }
+    var providerTestResult by remember { mutableStateOf("") }
+    var isTestingProvider by remember { mutableStateOf(false) }
     var provider2Url by remember { mutableStateOf(providerConfigs.getOrNull(1)?.baseUrl ?: "") }
     var provider2Model by remember { mutableStateOf(providerConfigs.getOrNull(1)?.model ?: "") }
     var provider2Key by remember { mutableStateOf(providerConfigs.getOrNull(1)?.apiKey ?: "") }
@@ -406,6 +408,29 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.deepseek.com") }, singleLine = true)
                     OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, placeholder = { Text("deepseek-flash") }, singleLine = true)
                     OutlinedTextField(value = providerKey, onValueChange = { providerKey = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    TextButton(
+                        enabled = !isTestingProvider,
+                        onClick = {
+                            if (!providerUrl.trim().startsWith("https://") || providerModel.isBlank() || providerKey.isBlank()) {
+                                providerTestResult = "Add the DeepSeek HTTPS base URL, model ID, and API key first."
+                            } else {
+                                isTestingProvider = true
+                                providerTestResult = "Connecting directly to DeepSeek…"
+                                scope.launch {
+                                    try {
+                                        val testConfig = AIProviderConfig(providerUrl.trim(), providerModel.trim(), providerKey.trim())
+                                        val answer = OpenAICompatibleEngine(testConfig).reply("Reply with exactly: KAIRO connected to DeepSeek.", "")
+                                        providerTestResult = "SUCCESS — DeepSeek replied: ${answer.take(180)}"
+                                    } catch (error: Exception) {
+                                        providerTestResult = "FAILED — ${error.message ?: "Unknown connection error"}"
+                                    } finally {
+                                        isTestingProvider = false
+                                    }
+                                }
+                            }
+                        }
+                    ) { Text(if (isTestingProvider) "TESTING DEEPSEEK…" else "TEST DEEPSEEK CONNECTION", color = Color(0xFF70E9FF)) }
+                    if (providerTestResult.isNotBlank()) Text(providerTestResult, color = if (providerTestResult.startsWith("SUCCESS")) Color(0xFF72E6A5) else Color(0xFFFFD27A), fontSize = 11.sp)
                     Text("BACKUP 1 • GROK / xAI (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(value = provider2Url, onValueChange = { provider2Url = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.x.ai/v1") }, singleLine = true)
                     OutlinedTextField(value = provider2Model, onValueChange = { provider2Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
