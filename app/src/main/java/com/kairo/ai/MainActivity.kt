@@ -257,9 +257,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 input = ""
                                 isThinking = true
                                 scope.launch {
-                                    val openApp = Regex("(?i)^(?:please\\s+)?(?:open|launch|start)\\s+(.+)$").find(prompt)
-                                    if (openApp != null) {
-                                        pendingAppLaunch = openApp.groupValues[1].trim()
+                                    val skillRequest = KairoSkillRegistry.detect(prompt)
+                                    if (skillRequest.type == KairoSkillType.OPEN_APP) {
+                                        pendingAppLaunch = skillRequest.argument
                                         messages.add(ChatMessage("I can open ${pendingAppLaunch}. Please confirm the action.", true))
                                         isThinking = false
                                         return@launch
