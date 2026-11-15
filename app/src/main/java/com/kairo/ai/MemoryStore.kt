@@ -49,7 +49,7 @@ class MemoryStore(context: Context) {
     fun clear() = save(emptyList())
 
     fun context(): String = all().takeIf { it.isNotEmpty() }
-        ?.joinToString("\\n", prefix = "Relevant saved memories about the user (use only when relevant):\\n") { "- $it" }
+        ?.joinToString("\n", prefix = "Relevant saved memories about the user (use only when relevant):\n") { "- $it" }
         .orEmpty()
 
     /** Only explicit low-risk preference wording is eligible for automatic memory. */
