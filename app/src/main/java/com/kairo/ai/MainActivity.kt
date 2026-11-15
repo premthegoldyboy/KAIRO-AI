@@ -286,6 +286,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     }
                     TextButton(
                         modifier = Modifier.weight(1f),
+                        enabled = !isThinking,
                         onClick = { exportConversationLauncher.launch("KAIRO-conversation.txt") }
                     ) {
                         Text("EXPORT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
