@@ -68,6 +68,10 @@ object KairoTaskPlanner {
 
     fun complexity(message: String): Int = classify(message).complexity
 
+    /** Local mode is strictly offline: never send even a search query to a remote service. */
+    fun shouldFetchLiveData(profile: TaskProfile, localMode: Boolean, hasSearchKey: Boolean): Boolean =
+        !localMode && profile.needsLiveData && hasSearchKey
+
     fun prepare(message: String, profile: TaskProfile = classify(message), liveDataAvailable: Boolean = false): String {
         val lines = mutableListOf<String>()
         approach(profile, message)?.let { lines += "Task approach: $it" }
