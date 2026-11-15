@@ -85,7 +85,7 @@ object KairoToolExecutor {
                 val exponent = unary().stripTrailingZeros()
                 require(exponent.scale() <= 0) { "exponent must be a whole number" }
                 val power = exponent.intValueExact()
-                require(kotlin.math.abs(power) <= 100) { "exponent is outside the supported range" }
+                require(power in -100..100) { "exponent is outside the supported range" }
                 if (power < 0) {
                     require(value.compareTo(BigDecimal.ZERO) != 0) { "zero cannot have a negative exponent" }
                     value = BigDecimal.ONE.divide(value.pow(-power, MathContext.DECIMAL128), MathContext.DECIMAL128)
