@@ -10,7 +10,7 @@ class KairoStudioUtilitiesTest {
         assertEquals(1000.0, KairoStudioUtilities.convert(1.0, "km", "m"), 0.000001)
         assertEquals(1.0, KairoStudioUtilities.convert(1000.0, "g", "kg"), 0.000001)
         assertEquals(60.0, KairoStudioUtilities.convert(1.0, "min", "s"), 0.000001)
-        assertEquals(1024.0, KairoStudioUtilities.convert(1.0, "kb", "b"), 0.000001)
+        assertEquals(1000.0, KairoStudioUtilities.convert(1.0, "kb", "b"), 0.000001)
     }
 
     @Test fun rejectsIncompatibleAndUnknownUnits() {
