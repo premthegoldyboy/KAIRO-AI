@@ -382,7 +382,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     when {
                         localAiEnabled && localModelReady -> "VOICE INPUT IS USER-INITIATED • LOCAL AI"
                         providerConfigs.isNotEmpty() -> "VOICE INPUT IS USER-INITIATED • MULTI-PROVIDER CLOUD AI"
-                        else -> "VOICE INPUT IS USER-INITIATED • DEMO MODE"
+                        else -> "VOICE INPUT IS USER-INITIATED • AI NOT CONFIGURED"
                     },
                     color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp
                 )
@@ -549,7 +549,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         provider3Key = ""
                         settingsError = ""
                         showSettings = false
-                    }) { Text("USE DEMO") }
+                    }) { Text("DISCONNECT CLOUD AI") }
                     TextButton(onClick = { showSettings = false }) { Text("CANCEL") }
                 }
             }
