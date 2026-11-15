@@ -11,6 +11,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/** Pure filtering helper: blank forget requests are intentionally non-destructive. */
+internal fun memoriesAfterForget(current: List<String>, query: String): List<String> =
+    if (query.isBlank()) current else current.filterNot { it.contains(query, ignoreCase = true) }
+
 /** Encrypted, device-local memory with conservative preference-only automatic learning. */
 class MemoryStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("kairo_memory", Context.MODE_PRIVATE)
@@ -40,9 +44,8 @@ class MemoryStore(context: Context) {
     @Synchronized
     fun forgetMatching(query: String): Int {
         // An empty or whitespace-only query must never match every saved memory.
-        if (query.isBlank()) return 0
         val current = all()
-        val remaining = current.filterNot { it.contains(query, ignoreCase = true) }
+        val remaining = memoriesAfterForget(current, query)
         save(remaining)
         return current.size - remaining.size
     }
