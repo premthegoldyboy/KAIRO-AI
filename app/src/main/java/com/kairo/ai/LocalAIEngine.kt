@@ -17,16 +17,17 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 
 /**
- * Downloads a compact, open-weight SmolLM2 model into the app's private files directory.
+ * Downloads a compact, open-weight Qwen3 0.6B INT4 no-think model into the app's private files directory.
  * The model is separate from the APK and can be deleted by clearing app storage.
  */
 object LocalModelManager {
-    const val MODEL_NAME = "SmolLM2 360M (374 MB)"
+    const val MODEL_NAME = "Qwen3 0.6B INT4 No-Think (347 MB)"
     private const val MODEL_URL =
-        "https://huggingface.co/litert-community/SmolLM2-360M-Instruct/resolve/main/SmolLM2_360M_instruct.litertlm"
-    private const val MODEL_FILE = "SmolLM2_360M_instruct.litertlm"
-    private const val MIN_MODEL_BYTES = 350_000_000L
-    private const val MAX_MODEL_BYTES = 400_000_000L
+        "https://huggingface.co/litert-community/Qwen3-0.6B-int4/resolve/main/qwen3_0.6b_nothink_q4_block32_ekv1280.litertlm"
+    private const val MODEL_FILE = "qwen3_0.6b_nothink_q4_block32_ekv1280.litertlm"
+    private const val LEGACY_MODEL_FILE = "SmolLM2_360M_instruct.litertlm"
+    private const val MIN_MODEL_BYTES = 320_000_000L
+    private const val MAX_MODEL_BYTES = 380_000_000L
 
     fun modelFile(context: Context) = File(context.filesDir, MODEL_FILE)
     fun isDownloaded(context: Context): Boolean =
@@ -75,6 +76,7 @@ object LocalModelManager {
                     "The downloaded model is incomplete ($received bytes). Please retry."
                 }
                 check(partial.renameTo(target)) { "Could not save the model on this device." }
+                File(context.filesDir, LEGACY_MODEL_FILE).delete()
                 onProgress(100)
                 target
             } catch (error: Exception) {
