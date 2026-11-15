@@ -65,6 +65,15 @@ class KairoRoutingTest {
         val profile = KairoTaskPlanner.classify("latest AI news today")
         assertFalse(KairoTaskPlanner.shouldFetchLiveData(profile, localMode = false, hasSearchKey = false))
     }
+    @Test fun blankForgetQueryPreservesEveryMemory() {
+        val saved = listOf("Name: Kai", "Preference: concise answers")
+        assertEquals(saved, memoriesAfterForget(saved, "   "))
+    }
+    @Test fun forgetQueryRemovesOnlyMatchingMemories() {
+        assertEquals(listOf("Preference: concise answers"),
+            memoriesAfterForget(listOf("Name: Kai", "Preference: concise answers"), "name"))
+    }
+
     @Test fun simpleChatIsNotWrapped() = assertEquals("hello", KairoTaskPlanner.prepare("hello"))
 
     @Test fun timeQuestionWithQuestionMark() = assertEquals(KairoSkillType.CURRENT_TIME, KairoSkillRegistry.detect("What time is it?").type)
@@ -121,6 +130,8 @@ class ResearchPresentationTest {
         assertEquals(null, ResearchPresentation.safeHttpsUrl("http://example.com"))
         assertEquals(null, ResearchPresentation.safeHttpsUrl("https://user:pass@example.com/path"))
         assertEquals(null, ResearchPresentation.safeHttpsUrl("javascript:alert(1)"))
+        assertEquals(null, ResearchPresentation.safeHttpsUrl("https://example.com:70000/path"))
+        assertEquals(null, ResearchPresentation.safeHttpsUrl("https://" + "a".repeat(2_050) + ".com"))
     }
 
     @Test fun acceptsNormalHttpsSource() {
