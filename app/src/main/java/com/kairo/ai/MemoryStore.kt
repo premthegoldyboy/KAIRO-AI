@@ -134,6 +134,10 @@ class MemoryStore(context: Context) {
     private fun save(items: List<String>) {
         if (items.isEmpty()) {
             prefs.edit().clear().apply()
+            // Remove the per-store encryption key as well as ciphertext when all memories are erased.
+            runCatching {
+                KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(alias)
+            }
             return
         }
         val json = JSONArray()
