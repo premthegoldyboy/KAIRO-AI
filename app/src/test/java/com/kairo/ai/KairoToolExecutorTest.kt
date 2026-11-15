@@ -55,4 +55,20 @@ class KairoToolExecutorTest {
         assertTrue(result.contains("unsupported source unit"))
     }
 
+    @Test fun speedConversionAcceptsSlashUnits() {
+        assertEquals("100 km/h = 27.777778 m/s", KairoUnitConverter.convert("100", "km/h", "m/s"))
+    }
+
+    @Test fun areaConversionWorks() {
+        assertEquals("1 km2 = 1000000 m2", KairoUnitConverter.convert("1", "km2", "m2"))
+    }
+
+    @Test fun decimalAndBinaryDataUnitsRemainDistinct() {
+        assertEquals("1 MB = 0.953674 MiB", KairoUnitConverter.convert("1", "MB", "MiB"))
+    }
+
+    @Test fun speedCannotBeConvertedToLength() {
+        assertTrue(KairoUnitConverter.convert("60", "mph", "km").contains("different things"))
+    }
+
 }
