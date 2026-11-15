@@ -358,9 +358,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         }
                                     } else emptyList()
                                     val researchContext = if (liveResults.isEmpty()) "" else buildString {
-                                        append("LIVE WEB RESEARCH RESULTS (retrieved now; use and cite these source URLs):\\n")
+                                        append("LIVE WEB RESEARCH RESULTS (retrieved now; use and cite these source URLs):\n")
                                         liveResults.forEachIndexed { index, item ->
-                                            append((index + 1).toString() + ". " + item.title + "\\n" + item.content + "\\nSource: " + item.url + "\\n\\n")
+                                            append((index + 1).toString() + ". " + item.title + "\n" + item.content + "\nSource: " + item.url + "\n\n")
                                         }
                                     }
                                     val kairoBrain = KairoBrain(
@@ -369,7 +369,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         preferLocal = localAiEnabled,
                                         localReady = localModelReady
                                     )
-                                    val savedMemory = listOf(memoryStore.context(prompt), researchContext).filter { it.isNotBlank() }.joinToString("\\n\\n")
+                                    val savedMemory = listOf(memoryStore.context(prompt), researchContext).filter { it.isNotBlank() }.joinToString("\n\n")
                                     val history = messages.dropLast(1).takeLast(12).map {
                                         ChatTurn(if (it.fromKairo) "assistant" else "user", it.text)
                                     }
