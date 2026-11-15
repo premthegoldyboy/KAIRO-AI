@@ -47,7 +47,7 @@ object PdfTextReader {
     }
 
     internal fun limitExtractedText(text: String): String =
-        text.take(MAX_EXTRACTED_CHARS).trim()
+        text.trim().take(MAX_EXTRACTED_CHARS)
 
     suspend fun read(context: Context, uri: Uri): ImportedTextDocument = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
