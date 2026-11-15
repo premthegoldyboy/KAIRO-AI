@@ -419,8 +419,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 scope.launch {
                                     try {
                                         val testConfig = AIProviderConfig(providerUrl.trim(), providerModel.trim(), providerKey.trim())
-                                        val answer = OpenAICompatibleEngine(testConfig).reply("Reply with exactly: KAIRO connected to DeepSeek.", "")
-                                        providerTestResult = "SUCCESS — DeepSeek replied: ${answer.take(180)}"
+                                                                                val answer = StringBuilder()
+                                        StreamingProviderEngine(testConfig).stream(
+                                            listOf(ChatTurn("user", "Reply with exactly: KAIRO connected to DeepSeek.")),
+                                            ""
+                                        ).collect { chunk -> answer.append(chunk) }
+                                        providerTestResult = "SUCCESS - DeepSeek streaming is working: ${answer.toString().take(180)}"
                                     } catch (error: Exception) {
                                         providerTestResult = "FAILED — ${error.message ?: "Unknown connection error"}"
                                     } finally {
