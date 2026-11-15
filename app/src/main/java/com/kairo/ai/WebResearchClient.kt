@@ -24,7 +24,20 @@ import kotlinx.coroutines.withContext
 data class ResearchResult(val title: String, val url: String, val content: String)
 
 /** Tavily-backed live search. The key is encrypted with an Android Keystore AES-GCM key. */
-class WebResearchClient(private val context: Context) {\n    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }\n\n    private fun readBounded(input: java.io.InputStream, limit: Int): ByteArray {\n        val output = java.io.ByteArrayOutputStream()\n        val buffer = ByteArray(8192)\n        while (true) {\n            val count = input.read(buffer)\n            if (count < 0) break\n            require(output.size() + count <= limit) { "The search service returned an oversized response." }\n            output.write(buffer, 0, count)\n        }\n        return output.toByteArray()\n    }
+class WebResearchClient(private val context: Context) {
+    private companion object { const val MAX_RESPONSE_BYTES = 1_048_576 }
+
+    private fun readBounded(input: java.io.InputStream, limit: Int): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size() + count <= limit) { "The search service returned an oversized response." }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
     private val prefs = context.applicationContext.getSharedPreferences("kairo_research", Context.MODE_PRIVATE)
     private val alias = "kairo_research_key"
 
@@ -81,7 +94,9 @@ class WebResearchClient(private val context: Context) {\n    private companion o
                 }
                 throw IllegalStateException(if (errorBody.isBlank()) detail else detail + " " + errorBody.take(180))
             }
-            val responseBytes = connection.inputStream.use { readBounded(it, MAX_RESPONSE_BYTES) }\n            require(responseBytes.size <= MAX_RESPONSE_BYTES) { "The search service returned an oversized response." }\n            val json = JSONObject(responseBytes.toString(Charsets.UTF_8))
+            val responseBytes = connection.inputStream.use { readBounded(it, MAX_RESPONSE_BYTES) }
+            require(responseBytes.size <= MAX_RESPONSE_BYTES) { "The search service returned an oversized response." }
+            val json = JSONObject(responseBytes.toString(Charsets.UTF_8))
             coroutineContext.ensureActive()
             val results = json.optJSONArray("results") ?: JSONArray()
             (0 until minOf(results.length(), 5)).mapNotNull { i ->
