@@ -264,36 +264,32 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         isThinking = false
                                         return@launch
                                     }
-                                    val lowerPrompt = prompt.lowercase()
-                                    val manualRemember = Regex("(?i)^(?:kairo[, ]*)?remember(?: that)?\\s+(.+)$").find(prompt)
-                                    val forgetAll = lowerPrompt in listOf("forget all memories", "clear all memories", "delete all memories")
-                                    val forgetQuery = Regex("(?i)^(?:kairo[, ]*)?forget\\s+(.+)$").find(prompt)
-                                    val memoryAnswer = when {
-                                        manualRemember != null -> {
-                                            val saved = memoryStore.remember(manualRemember.groupValues[1])
+                                    val memoryAnswer = when (skillRequest.type) {
+                                        KairoSkillType.REMEMBER -> {
+                                            val saved = memoryStore.remember(skillRequest.argument)
                                             memoryItems = memoryStore.all()
                                             if (saved) "I'll remember that. You can ask me to recall it or forget it anytime."
                                             else "I already have that memory, or it was too short to save."
                                         }
-                                        forgetAll -> {
-                                            memoryStore.clear()
-                                            memoryItems = emptyList()
-                                            "All saved memories have been cleared from this device."
+                                        KairoSkillType.FORGET -> {
+                                            if (skillRequest.argument == "*") {
+                                                memoryStore.clear()
+                                                memoryItems = emptyList()
+                                                "All saved memories have been cleared from this device."
+                                            } else {
+                                                val count = memoryStore.forgetMatching(skillRequest.argument)
+                                                memoryItems = memoryStore.all()
+                                                if (count > 0) "I've removed $count matching memory item(s)."
+                                                else "I couldn't find a saved memory matching that."
+                                            }
                                         }
-                                        forgetQuery != null -> {
-                                            val count = memoryStore.forgetMatching(forgetQuery.groupValues[1])
-                                            memoryItems = memoryStore.all()
-                                            if (count > 0) "I've removed $count matching memory item(s)."
-                                            else "I couldn't find a saved memory matching that."
-                                        }
-                                        memoryStore.answerPersonalFact(prompt) != null -> memoryStore.answerPersonalFact(prompt)!!
-                                        lowerPrompt.contains("what do you remember") || lowerPrompt == "show memories" || lowerPrompt == "list memories" -> {
+                                        KairoSkillType.RECALL -> {
                                             val saved = memoryStore.all()
                                             memoryItems = saved
                                             if (saved.isEmpty()) "I don't have any saved memories yet."
                                             else "Here's what I remember:\n" + saved.joinToString("\n")
                                         }
-                                        else -> null
+                                        else -> memoryStore.answerPersonalFact(prompt)
                                     }
                                     if (memoryAnswer != null) {
                                         messages.add(ChatMessage(memoryAnswer, true))
@@ -309,7 +305,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         preferLocal = localAiEnabled,
                                         localReady = localModelReady
                                     )
-                                    val answer = runCatching { kairoBrain.reply(prompt, memoryStore.context()) }
+                                    val answer = runCatching { kairoBrain.reply(prompt, memoryStore.context(prompt)) }
                                         .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
                                     messages.add(ChatMessage(answer, true))
                                     onSpeak(answer)
