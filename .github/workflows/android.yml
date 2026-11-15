@@ -3,7 +3,7 @@ name: Build KAIRO Android APK
 on:
   pull_request:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "kairo/**" ]
   workflow_dispatch:
 
 jobs:
