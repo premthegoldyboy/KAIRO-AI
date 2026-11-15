@@ -346,19 +346,19 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Spacer(Modifier.height(8.dp))
                     Text("ON-DEVICE AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("AVAILABLE MODEL", color = Color(0xFF8195B5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text("SmolLM2-360M-Instruct", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text("360 million parameters • approximately 374 MB • runs on this phone • no API key", color = Color(0xFF9FB2D0), fontSize = 11.sp)
+                    Text("Qwen3-0.6B-INT4-No-Think", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("600 million parameters • approximately 347 MB • INT4 quantized • no API key", color = Color(0xFF9FB2D0), fontSize = 11.sp)
                     Text(
                         when {
-                            localModelReady && localAiEnabled -> "SELECTED: SmolLM2-360M-Instruct • ACTIVE"
-                            localModelReady -> "DOWNLOADED: SmolLM2-360M-Instruct • NOT ACTIVE"
-                            else -> "SELECTED MODEL: SmolLM2-360M-Instruct • NOT DOWNLOADED"
+                            localModelReady && localAiEnabled -> "SELECTED: Qwen3-0.6B-INT4-No-Think • ACTIVE"
+                            localModelReady -> "DOWNLOADED: Qwen3-0.6B-INT4-No-Think • NOT ACTIVE"
+                            else -> "SELECTED MODEL: Qwen3-0.6B-INT4-No-Think • NOT DOWNLOADED"
                         },
                         color = if (localModelReady && localAiEnabled) Color(0xFF72E6A5) else Color(0xFFFFD27A),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("This is currently the only bundled on-device model option. It is compact, so Telugu-English answers may be less capable than larger models. Keep KAIRO open and use Wi-Fi while downloading.", fontSize = 11.sp)
+                    Text("Fast, direct-answer local model. No-think mode skips lengthy reasoning for quicker replies. Actual speed depends on device load. Keep KAIRO open and use Wi-Fi while downloading.", fontSize = 11.sp)
                     TextButton(
                         enabled = !isDownloadingModel && !localModelReady,
                         onClick = {
@@ -384,7 +384,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             when {
                                 localModelReady -> "✓ LOCAL MODEL DOWNLOADED"
                                 isDownloadingModel -> "DOWNLOADING…"
-                                else -> "DOWNLOAD SMALL LOCAL MODEL (374 MB)"
+                                else -> "DOWNLOAD FAST LOCAL MODEL (347 MB)"
                             },
                             color = Color(0xFF70E9FF)
                         )
