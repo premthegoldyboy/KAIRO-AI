@@ -246,6 +246,14 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 input = ""
                                 isThinking = true
                                 scope.launch {
+                                    val openApp = Regex("(?i)^(?:please\\s+)?(?:open|launch|start)\\s+(.+)$").find(prompt)
+                                    if (openApp != null) {
+                                        val result = AppLauncher.open(context, openApp.groupValues[1])
+                                        messages.add(ChatMessage(result, true))
+                                        onSpeak(result)
+                                        isThinking = false
+                                        return@launch
+                                    }
                                     val lowerPrompt = prompt.lowercase()
                                     val manualRemember = Regex("(?i)^(?:kairo[, ]*)?remember(?: that)?\\s+(.+)$").find(prompt)
                                     val forgetAll = lowerPrompt in listOf("forget all memories", "clear all memories", "delete all memories")
