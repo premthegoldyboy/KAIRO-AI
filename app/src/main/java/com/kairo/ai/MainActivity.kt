@@ -285,7 +285,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 input = ""
                                 isThinking = true
                                 scope.launch {
-                                    val skillRequest = KairoSkillRegistry.detect(prompt)
+                                    try {
+                                        val skillRequest = KairoSkillRegistry.detect(prompt)
                                     val directToolAnswer = KairoToolExecutor.execute(skillRequest)
                                     if (directToolAnswer != null) {
                                         messages.add(ChatMessage(directToolAnswer, true))
@@ -354,9 +355,20 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     }
                                     val answer = runCatching { kairoBrain.reply(prompt, assistantContext) }
                                         .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
-                                    messages.add(ChatMessage(answer, true))
-                                    onSpeak(answer)
-                                    isThinking = false
+                                        messages.add(ChatMessage(answer, true))
+                                        onSpeak(answer)
+                                    } catch (error: Exception) {
+                                        if (error is kotlinx.coroutines.CancellationException) throw error
+                                        messages.add(
+                                            ChatMessage(
+                                                "KAIRO couldn't complete that request: " +
+                                                    (error.message ?: "Please try again."),
+                                                true
+                                            )
+                                        )
+                                    } finally {
+                                        isThinking = false
+                                    }
                                 }
                             }
                         },
