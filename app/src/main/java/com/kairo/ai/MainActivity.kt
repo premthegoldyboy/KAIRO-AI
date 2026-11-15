@@ -279,6 +279,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                             if (count > 0) "I've removed $count matching memory item(s)."
                                             else "I couldn't find a saved memory matching that."
                                         }
+                                        memoryStore.answerPersonalFact(prompt) != null -> memoryStore.answerPersonalFact(prompt)!!
                                         lowerPrompt.contains("what do you remember") || lowerPrompt == "show memories" || lowerPrompt == "list memories" -> {
                                             val saved = memoryStore.all()
                                             memoryItems = saved
