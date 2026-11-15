@@ -109,6 +109,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     val configStore = remember { ProviderConfigStore(context) }
     val memoryStore = remember { MemoryStore(context) }
     val conversationStore = remember { ConversationStore(context) }
+    val researchClient = remember { WebResearchClient(context) }
+    var researchApiKey by remember { mutableStateOf(researchClient.loadApiKey()) }
+    var screenReadStatus by remember { mutableStateOf("") }
     var providerConfigs by remember { mutableStateOf(configStore.loadAll()) }
     var providerConfig by remember { mutableStateOf(providerConfigs.firstOrNull()) }
     var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
@@ -153,6 +156,20 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     }
     var input by remember { mutableStateOf("") }
     var listeningError by remember { mutableStateOf("") }
+
+    val screenImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            screenReadStatus = "Reading selected screenshot…"
+            try {
+                val extracted = ScreenTextReader.extract(context, uri)
+                if (extracted.isBlank()) screenReadStatus = "No readable text found in that image."
+                else {
+                    input = "Please understand this screen content and help me with it:\n" + extracted.take(6000)
+                    screenReadStatus = "Text extracted. Review the message before sending."
+                }
+            } catch (error: Exception) { screenReadStatus = "Could not read image: " + (error.message ?: "unknown error") }
+        }
+    }
 
     val speechLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -244,6 +261,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text(listeningError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
                 }
 
+                if (screenReadStatus.isNotBlank()) Text(screenReadStatus, color = Color(0xFF9FB2D0), fontSize = 11.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth().background(Color(0xFF151F31), RoundedCornerShape(18.dp)).padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -273,6 +291,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
                     ) { Text("🎙", fontSize = 16.sp) }
+                    Button(onClick = { screenImageLauncher.launch("image/*") }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))) { Text("SCREEN", fontSize = 9.sp) }
                     Button(
                         onClick = {
                             val prompt = input.trim()
@@ -330,13 +349,27 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     }
                                     memoryStore.autoLearn(prompt)
                                     memoryItems = memoryStore.all()
+                                    val taskProfile = KairoTaskPlanner.classify(prompt)
+                                    val liveResults = if (taskProfile.needsLiveData && researchApiKey.isNotBlank()) {
+                                        try { researchClient.search(prompt) } catch (error: Exception) {
+                                            messages.add(ChatMessage("Live research failed: " + (error.message ?: "search error"), true))
+                                            isThinking = false
+                                            return@launch
+                                        }
+                                    } else emptyList()
+                                    val researchContext = if (liveResults.isEmpty()) "" else buildString {
+                                        append("LIVE WEB RESEARCH RESULTS (retrieved now; use and cite these source URLs):\\n")
+                                        liveResults.forEachIndexed { index, item ->
+                                            append((index + 1).toString() + ". " + item.title + "\\n" + item.content + "\\nSource: " + item.url + "\\n\\n")
+                                        }
+                                    }
                                     val kairoBrain = KairoBrain(
                                         localEngine = localEngine,
                                         providers = providerConfigs,
                                         preferLocal = localAiEnabled,
                                         localReady = localModelReady
                                     )
-                                    val savedMemory = memoryStore.context(prompt)
+                                    val savedMemory = listOf(memoryStore.context(prompt), researchContext).filter { it.isNotBlank() }.joinToString("\\n\\n")
                                     val history = messages.dropLast(1).takeLast(12).map {
                                         ChatTurn(if (it.fromKairo) "assistant" else "user", it.text)
                                     }
@@ -355,7 +388,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                     val responseSlot = messages.lastIndex
                                     val responseBuffer = StringBuilder()
                                     try {
-                                        kairoBrain.replyStream(prompt, history, savedMemory, localContext).collect { chunk ->
+                                        kairoBrain.replyStream(prompt, history, savedMemory, localContext, liveResults.isNotEmpty()).collect { chunk ->
                                             responseBuffer.append(chunk)
                                             messages[responseSlot] = ChatMessage(responseBuffer.toString(), true)
                                         }
@@ -411,6 +444,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     Text("KAIRO saves explicit memories and a limited recent chat history. Both are encrypted on this device. Recent chat context may be sent to whichever cloud provider answers your request.", fontSize = 11.sp)
                     TextButton(onClick = { showClearChatDialog = true; showSettings = false }) { Text("CLEAR CONVERSATION HISTORY", color = Color(0xFFFFB4AB)) }
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
+                    Text("LIVE WEB RESEARCH", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("Optional Tavily search key. KAIRO uses it for current-information questions; search results are sent to your selected AI provider for synthesis.", fontSize = 11.sp)
+                    OutlinedTextField(value = researchApiKey, onValueChange = { researchApiKey = it }, label = { Text("Tavily API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("KAIRO rotates across configured providers and temporarily skips rate-limited or unhealthy endpoints. Add an OmniRoute instance you control as an OpenAI-compatible gateway; the gateway must already be hosted and connected to provider accounts. Routing does not create free quota or bypass provider limits.", fontSize = 12.sp)
                     Text("PRIMARY • DEEPSEEK", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -541,6 +577,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     else if (configs.isEmpty()) settingsError = "Enter at least one provider."
                     else runCatching { configStore.saveAll(configs) }
                         .onSuccess {
+                            researchClient.saveApiKey(researchApiKey)
                             providerConfigs = configs
                             providerConfig = configs.firstOrNull()
                             localAiEnabled = false
@@ -589,7 +626,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     val requested = pendingAppLaunch
                     pendingAppLaunch = null
                     if (requested != null) {
-                        val result = AppLauncher.open(context, requested)
+                        val result = if (KairoActionPolicy.mayExecute(KairoAction.OPEN_INSTALLED_APP, true)) AppLauncher.open(context, requested) else "KAIRO blocked an unapproved action."
                         messages.add(ChatMessage(result, true))
                         onSpeak(result)
                     }
