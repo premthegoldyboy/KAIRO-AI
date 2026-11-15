@@ -56,7 +56,7 @@ class MemoryStore(context: Context) {
             .filter { it.length >= 3 }.toSet()
         val ranked = memories.mapIndexed { index, item ->
             val words = item.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).toSet()
-            Triple(item, terms.intersect(words).size, index)
+            Triple(item, (terms.intersect(words).size * 4) + (if (query.trim().length >= 4 && item.contains(query.trim(), ignoreCase = true)) 6 else 0), index)
         }.sortedWith(compareByDescending<Triple<String, Int, Int>> { it.second }.thenByDescending { it.third })
         val selected = if (terms.isEmpty()) memories.takeLast(8)
             else ranked.filter { it.second > 0 }.take(8).map { it.first }

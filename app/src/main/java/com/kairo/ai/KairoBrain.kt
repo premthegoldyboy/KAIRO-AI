@@ -54,10 +54,11 @@ class KairoBrain(
         message: String,
         history: List<ChatTurn>,
         memoryContext: String,
-        localContext: String = memoryContext
+        localContext: String = memoryContext,
+        liveDataAvailable: Boolean = false
     ): Flow<String> = flow {
         val profile = KairoTaskPlanner.classify(message)
-        val planned = KairoTaskPlanner.prepare(message, profile)
+        val planned = KairoTaskPlanner.prepare(message, profile, liveDataAvailable)
         val turns = ChatTurn.normalize(history + ChatTurn("user", planned))
         val cloud = providers.takeIf { it.isNotEmpty() }?.let(::FailoverStreamingEngine)
         val localActive = preferLocal && localReady
