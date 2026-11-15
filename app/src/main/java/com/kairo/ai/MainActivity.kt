@@ -298,7 +298,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                 letterSpacing = 0.6.sp
                             )
                             Text(
-                                (if (isThinking) "ACTIVE SPECIALIST • " else "LAST SPECIALIST • ") +
+                                (if (isThinking) "ACTIVE ROUTE • " else "LAST ROUTE • ") +
                                     activeAgentLabel.uppercase(),
                                 color = Color(0xFF91A7C5),
                                 fontSize = 9.sp,
