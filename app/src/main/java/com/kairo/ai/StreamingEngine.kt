@@ -138,18 +138,25 @@ class FailoverStreamingEngine(private val providers: List<AIProviderConfig>) : S
     override fun stream(history: List<ChatTurn>, memoryContext: String): Flow<String> = flow {
         if (providers.isEmpty()) throw IllegalStateException("No cloud AI providers are configured.")
         val failures = mutableListOf<String>()
-        for (provider in providers) {
+        val routedProviders = ProviderRouter.order(providers)
+        for (provider in routedProviders) {
             var emitted = false
             try {
                 StreamingProviderEngine(provider).stream(history, memoryContext).collect { chunk ->
                     emitted = true
                     emit(chunk)
                 }
-                if (emitted) return@flow
+                if (emitted) {
+                    ProviderRouter.recordSuccess(provider)
+                    return@flow
+                }
+                val emptyError = IllegalStateException("Provider returned an empty response.")
+                ProviderRouter.recordFailure(provider, emptyError)
                 failures += "${provider.model}: empty response"
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) {
+                ProviderRouter.recordFailure(provider, error)
                 if (emitted) throw error
                 failures += "${ProviderEndpoints.providerLabel(provider.baseUrl)} (${provider.model}): ${error.message?.take(160) ?: "unknown provider error"}"
             }

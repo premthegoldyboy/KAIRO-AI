@@ -136,6 +136,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var provider3Url by remember { mutableStateOf(providerConfigs.getOrNull(2)?.baseUrl ?: "") }
     var provider3Model by remember { mutableStateOf(providerConfigs.getOrNull(2)?.model ?: "") }
     var provider3Key by remember { mutableStateOf(providerConfigs.getOrNull(2)?.apiKey ?: "") }
+    var provider4Url by remember { mutableStateOf(providerConfigs.getOrNull(3)?.baseUrl ?: "") }
+    var provider4Model by remember { mutableStateOf(providerConfigs.getOrNull(3)?.model ?: "") }
+    var provider4Key by remember { mutableStateOf(providerConfigs.getOrNull(3)?.apiKey ?: "") }
     var settingsError by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -409,7 +412,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     TextButton(onClick = { showClearChatDialog = true; showSettings = false }) { Text("CLEAR CONVERSATION HISTORY", color = Color(0xFFFFB4AB)) }
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
                     Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("KAIRO tries DeepSeek, Grok, then Claude. DeepSeek and Grok use Chat Completions; Claude uses its native Messages API. Enter each provider's current model ID and API key. Failover does not remove provider quotas or costs.", fontSize = 12.sp)
+                    Text("KAIRO rotates across configured providers and temporarily skips rate-limited or unhealthy endpoints. Add an OmniRoute instance you control as an OpenAI-compatible gateway; the gateway must already be hosted and connected to provider accounts. Routing does not create free quota or bypass provider limits.", fontSize = 12.sp)
                     Text("PRIMARY • DEEPSEEK", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(value = providerUrl, onValueChange = { providerUrl = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.deepseek.com") }, singleLine = true)
                     OutlinedTextField(value = providerModel, onValueChange = { providerModel = it; settingsError = "" }, label = { Text("Model name") }, placeholder = { Text("deepseek-flash") }, singleLine = true)
@@ -449,6 +452,11 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     OutlinedTextField(value = provider3Url, onValueChange = { provider3Url = it; settingsError = "" }, label = { Text("Base URL") }, placeholder = { Text("https://api.anthropic.com") }, singleLine = true)
                     OutlinedTextField(value = provider3Model, onValueChange = { provider3Model = it; settingsError = "" }, label = { Text("Model name") }, singleLine = true)
                     OutlinedTextField(value = provider3Key, onValueChange = { provider3Key = it; settingsError = "" }, label = { Text("API key") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                    Text("BACKUP 3 • OMNIROUTE / CUSTOM GATEWAY (OPTIONAL)", color = Color(0xFF9FB2D0), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("Use the HTTPS URL, model ID and gateway token from your own OmniRoute deployment. The URL should be its OpenAI-compatible API base (usually ending in /v1). KAIRO connects to it; it does not host the gateway.", fontSize = 11.sp)
+                    OutlinedTextField(value = provider4Url, onValueChange = { provider4Url = it; settingsError = "" }, label = { Text("Gateway base URL") }, placeholder = { Text("https://your-server.example/v1") }, singleLine = true)
+                    OutlinedTextField(value = provider4Model, onValueChange = { provider4Model = it; settingsError = "" }, label = { Text("Gateway model ID") }, placeholder = { Text("provider/model") }, singleLine = true)
+                    OutlinedTextField(value = provider4Key, onValueChange = { provider4Key = it; settingsError = "" }, label = { Text("Gateway API token") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     if (settingsError.isNotBlank()) Text(settingsError, color = Color(0xFFFFB4AB), fontSize = 12.sp)
                     Text("The key is encrypted on this device using Android Keystore. Never paste it into GitHub or share it in chat.", fontSize = 11.sp)
                     Spacer(Modifier.height(8.dp))
@@ -515,7 +523,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     val entered = listOf(
                         Triple(providerUrl, providerModel, providerKey),
                         Triple(provider2Url, provider2Model, provider2Key),
-                        Triple(provider3Url, provider3Model, provider3Key)
+                        Triple(provider3Url, provider3Model, provider3Key),
+                        Triple(provider4Url, provider4Model, provider4Key)
                     )
                     val incomplete = entered.any { (url, model, key) ->
                         (url.isNotBlank() || model.isNotBlank() || key.isNotBlank()) &&
@@ -557,6 +566,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         provider3Url = ""
                         provider3Model = ""
                         provider3Key = ""
+                        provider4Url = ""
+                        provider4Model = ""
+                        provider4Key = ""
                         settingsError = ""
                         showSettings = false
                     }) { Text("DISCONNECT CLOUD AI") }
