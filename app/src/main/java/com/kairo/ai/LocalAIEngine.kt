@@ -98,7 +98,7 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
     private var conversation: Conversation? = null
     private var closed = false
 
-    override suspend fun reply(message: String): String = withContext(dispatcher) {
+    override suspend fun reply(message: String, memoryContext: String): String = withContext(dispatcher) {
         check(!closed) { "Local AI engine is closed. Reopen KAIRO to use it again." }
         val model = LocalModelManager.modelFile(appContext)
         check(LocalModelManager.isDownloaded(appContext)) {
@@ -124,7 +124,8 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
             )
         }
         val output = StringBuilder()
-        checkNotNull(conversation).sendMessageAsync(message).collect { chunk ->
+        val prompt = if (memoryContext.isBlank()) message else memoryContext + "\\n\\nUser message: " + message
+        checkNotNull(conversation).sendMessageAsync(prompt).collect { chunk ->
             output.append(chunk.toString())
         }
         output.toString().trim().ifBlank { "The local model returned an empty response." }
