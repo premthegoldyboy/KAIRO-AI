@@ -31,7 +31,7 @@ class DocumentTextReaderTest {
         val bytes = ByteArray(DocumentTextReader.MAX_DOCUMENT_BYTES + 1) { 'x'.code.toByte() }
         val error = runCatching { DocumentTextReader.decodeText(bytes) }.exceptionOrNull()
         assertTrue(error is IllegalArgumentException)
-        assertTrue(error?.message.orEmpty().contains("96 KB"))
+        assertTrue(error?.message.orEmpty().contains("24 KB"))
     }
 
     @Test fun rejectsMalformedUtf8() {
