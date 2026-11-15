@@ -8,7 +8,7 @@ data class TaskProfile(
     val needsLiveData: Boolean,
     val language: LangStyle
 ) {
-    val preferCloud: Boolean get() = complexity >= 2 || needsLiveData || language != LangStyle.ENGLISH
+    // Model choice is explicit in Settings. Task complexity or language must never force a cloud request.
 }
 
 /** Fast keyword-based task routing; live-data requests are explicitly marked as unverified. */
