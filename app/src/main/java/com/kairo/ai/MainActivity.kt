@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -165,6 +167,10 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             if (isEmpty()) add(ChatMessage("KAIRO core initialized. I'm ready when you are.", true))
         }
     }
+    val chatListState = rememberLazyListState()
+    LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length) {
+        if (messages.isNotEmpty()) chatListState.scrollToItem(messages.lastIndex)
+    }
     LaunchedEffect(messages.size) {
         conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
     }
@@ -219,50 +225,95 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .background(Brush.verticalGradient(listOf(Color(0xFF101B31), Color(0xFF070B14))))
                     .padding(18.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("K A I R O", color = Color(0xFF70E9FF), fontSize = 25.sp, fontWeight = FontWeight.Black)
                         Text("SOVEREIGN INTELLIGENCE", color = Color(0xFF8195B5), fontSize = 10.sp, letterSpacing = 2.sp)
-                    }
-                    TextButton(onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }) {
-                        Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
-                    }
-                    TextButton(onClick = { showClearChatDialog = true }) {
-                        Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
                     }
                     TextButton(onClick = { showSettings = true }) {
                         Text("⚙ SETTINGS", color = Color(0xFF70E9FF), fontSize = 10.sp)
                     }
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }
+                    ) {
+                        Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
+                    }
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { showClearChatDialog = true }
+                    ) {
+                        Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
+                    }
+                }
 
-                Spacer(Modifier.height(24.dp))
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier.size(142.dp).background(
-                            Brush.radialGradient(listOf(Color(0x5535DFFF), Color(0x222D6D9B), Color.Transparent)),
-                            CircleShape
-                        ),
-                        contentAlignment = Alignment.Center
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF101D30),
+                    shape = RoundedCornerShape(22.dp),
+                    tonalElevation = 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Box(
-                            Modifier.size(88.dp).background(
-                                Brush.linearGradient(listOf(Color(0xFF164E78), Color(0xFF10172D))),
-                                CircleShape
+                            modifier = Modifier.size(46.dp).background(
+                                Brush.linearGradient(listOf(Color(0xFF1A7895), Color(0xFF263A69))),
+                                RoundedCornerShape(15.dp)
                             ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("K", color = Color(0xFF8AF0FF), fontSize = 43.sp, fontWeight = FontWeight.Light)
+                            Text("K", color = Color(0xFFE4FBFF), fontSize = 25.sp, fontWeight = FontWeight.Black)
                         }
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("YOUR AI WORKSPACE", color = Color(0xFFEAF5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text(
+                                when {
+                                    localAiEnabled && localModelReady -> "ON-DEVICE MODEL • ACTIVE"
+                                    providerConfigs.isNotEmpty() && !localAiEnabled -> "CLOUD AI • CONFIGURED"
+                                    else -> "AI SETUP REQUIRED"
+                                },
+                                color = when {
+                                    localAiEnabled && localModelReady -> Color(0xFF73E6B0)
+                                    providerConfigs.isNotEmpty() && !localAiEnabled -> Color(0xFF73E6B0)
+                                    else -> Color(0xFFFFD27A)
+                                },
+                                fontSize = 10.sp,
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.size(9.dp).background(
+                                when {
+                                    isThinking -> Color(0xFFFFC36B)
+                                    localAiEnabled && localModelReady -> Color(0xFF62DDA6)
+                                    !localAiEnabled && providerConfigs.isNotEmpty() -> Color(0xFF62DDA6)
+                                    else -> Color(0xFFFFD27A)
+                                },
+                                CircleShape
+                            )
+                        )
                     }
                 }
-                Spacer(Modifier.height(18.dp))
-                Text("YOUR PERSONAL AI", color = Color(0xFF9FB2D0), fontSize = 11.sp, letterSpacing = 2.sp)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
 
                 LazyColumn(
+                    state = chatListState,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -754,21 +805,34 @@ private fun ChatBubble(message: ChatMessage) {
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.88f)
+                .fillMaxWidth(if (message.fromKairo) 0.94f else 0.88f)
                 .background(
-                    if (message.fromKairo) Color(0xFF14263A) else Color(0xFF123D55),
-                    RoundedCornerShape(16.dp)
+                    if (message.fromKairo) Color(0xFF111F32) else Color(0xFF16445C),
+                    RoundedCornerShape(
+                        topStart = 20.dp,
+                        topEnd = 20.dp,
+                        bottomEnd = if (message.fromKairo) 20.dp else 6.dp,
+                        bottomStart = if (message.fromKairo) 6.dp else 20.dp
+                    )
                 )
-                .padding(13.dp)
+                .padding(horizontal = 15.dp, vertical = 13.dp)
         ) {
-            Text(
-                if (message.fromKairo) "KAIRO" else "YOU",
-                color = if (message.fromKairo) Color(0xFF6FE5FF) else Color(0xFF9AD8FF),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp
-            )
-            Spacer(Modifier.height(5.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Box(
+                    Modifier.size(7.dp).background(
+                        if (message.fromKairo) Color(0xFF65DFF5) else Color(0xFF9AD8FF),
+                        CircleShape
+                    )
+                )
+                Text(
+                    if (message.fromKairo) "KAIRO" else "YOU",
+                    color = if (message.fromKairo) Color(0xFF75E5F7) else Color(0xFFAADFFF),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.4.sp
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             val uriHandler = LocalUriHandler.current
             val linkedText = remember(message.text) {
                 buildAnnotatedString {
@@ -789,7 +853,11 @@ private fun ChatBubble(message: ChatMessage) {
             }
             ClickableText(
                 text = linkedText,
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFEAF2FF), fontSize = 14.sp),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFFEAF2FF),
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp
+                ),
                 onClick = { offset ->
                     linkedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
                         runCatching { uriHandler.openUri(it.item) }
