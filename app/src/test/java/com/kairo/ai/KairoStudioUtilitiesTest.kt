@@ -29,7 +29,7 @@ class KairoStudioUtilitiesTest {
 
     @Test fun analyzesDocumentWithoutAi() {
         val metrics = KairoStudioUtilities.analyzeDocument("Hello world. తెలుగు వాక్యం!")
-        assertEquals(5, metrics.words)
+        assertEquals(4, metrics.words)
         assertEquals(2, metrics.sentences)
         assertEquals(KairoStudioUtilities.Language.MIXED, metrics.language)
     }
