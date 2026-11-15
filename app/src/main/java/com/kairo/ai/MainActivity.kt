@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private data class ChatMessage(val text: String, val fromKairo: Boolean)
 
@@ -88,6 +90,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 private fun KairoApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val engine = remember { DemoAIEngine() }
+    val scope = rememberCoroutineScope()
+    var isThinking by remember { mutableStateOf(false) }
     val messages = remember {
         mutableStateListOf(
             ChatMessage("KAIRO core initialized. I'm ready when you are.", true)
@@ -213,14 +217,18 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                             if (prompt.isNotEmpty()) {
                                 messages.add(ChatMessage(prompt, false))
                                 input = ""
-                                val answer = runCatching { engine.reply(prompt) }
-                                    .getOrElse { "Something went wrong. Please try again." }
-                                messages.add(ChatMessage(answer, true))
-                                onSpeak(answer)
+                                isThinking = true
+                                scope.launch {
+                                    val answer = runCatching { engine.reply(prompt) }
+                                        .getOrElse { "Something went wrong. Please try again." }
+                                    messages.add(ChatMessage(answer, true))
+                                    onSpeak(answer)
+                                    isThinking = false
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF087E9B))
-                    ) { Text("SEND", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text(if (isThinking) "..." else "SEND", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("VOICE INPUT IS USER-INITIATED • DEMO AI MODE", color = Color(0xFF60728D), fontSize = 9.sp, letterSpacing = 1.sp)
