@@ -371,13 +371,21 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         onClick = {
                             val prompt = input.trim()
                             if (prompt.isNotEmpty() && !isThinking) {
-                                activeAgentLabel = KairoAgentRegistry.resolve(KairoTaskPlanner.classify(prompt)).displayName
                                 messages.add(ChatMessage(prompt, false))
                                 input = ""
                                 isThinking = true
                                 scope.launch {
                                     try {
                                         val skillRequest = KairoSkillRegistry.detect(prompt)
+                                    activeAgentLabel = when (skillRequest.type) {
+                                        KairoSkillType.OPEN_APP -> "App Launcher"
+                                        KairoSkillType.REMEMBER, KairoSkillType.FORGET, KairoSkillType.RECALL -> "Memory Manager"
+                                        KairoSkillType.CALCULATE -> "Offline Calculator"
+                                        KairoSkillType.CONVERT -> "Unit Converter"
+                                        KairoSkillType.ANALYZE_DOCUMENT -> "Document Analyzer"
+                                        KairoSkillType.CURRENT_TIME -> "Device Clock"
+                                        KairoSkillType.GENERAL -> KairoAgentRegistry.resolve(KairoTaskPlanner.classify(prompt)).displayName
+                                    }
                                     val directToolAnswer = KairoToolExecutor.execute(skillRequest)
                                     if (directToolAnswer != null) {
                                         messages.add(ChatMessage(directToolAnswer, true))
