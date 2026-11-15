@@ -43,7 +43,7 @@ class KairoBrain(
                 return cloud.reply(planned, memoryContext)
             }
         }
-        return cloud?.reply(planned, memoryContext) ?: DemoAIEngine().reply(planned, memoryContext)
+        return cloud?.reply(planned, memoryContext) ?: DemoAIEngine().reply(message, memoryContext)
     }
 
     /**
@@ -95,7 +95,7 @@ class KairoBrain(
         } else if (cloud != null) {
             cloud.stream(turns, memoryContext).collect { emit(it) }
         } else {
-            emit(DemoAIEngine().reply(planned, localContext))
+            emit(DemoAIEngine().reply(message, localContext))
         }
     }
 }
