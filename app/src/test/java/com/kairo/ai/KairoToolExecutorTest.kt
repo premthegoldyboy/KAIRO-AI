@@ -41,18 +41,21 @@ class KairoToolExecutorTest {
     }
 
     @Test fun incompatibleDimensionsAreRejected() {
-        val result = KairoUnitConverter.convert("5", "km", "kg")
-        assertTrue(result.contains("different things"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("5", "km", "kg")
+        }
     }
 
     @Test fun belowAbsoluteZeroIsRejected() {
-        val result = KairoUnitConverter.convert("-300", "C", "K")
-        assertTrue(result.contains("absolute zero"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("-300", "C", "K")
+        }
     }
 
     @Test fun unsupportedUnitsAreRejected() {
-        val result = KairoUnitConverter.convert("5", "parsec", "km")
-        assertTrue(result.contains("unsupported source unit"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("5", "parsec", "km")
+        }
     }
 
 }
