@@ -118,10 +118,7 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
             engine = candidate
             conversation = candidate.createConversation(
                 ConversationConfig(
-                    systemInstruction = Contents.of(
-                        "You are KAIRO, a helpful, friendly Android assistant. " +
-                            "Be concise: answer in 1-3 short sentences unless more detail is requested. Understand English and Telugu-English. Use saved memories when relevant. Never guess personal facts. If a personal fact is unknown, simply say it has not been shared yet. Avoid generic privacy disclaimers."
-                    )
+                    systemInstruction = Contents.of(KairoPersonality.systemInstruction())
                 )
             )
         }
