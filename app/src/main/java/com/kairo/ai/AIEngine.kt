@@ -7,11 +7,11 @@ import java.net.URL
 data class AIProviderConfig(val baseUrl: String, val model: String, val apiKey: String)
 
 interface AIEngine {
-    suspend fun reply(message: String): String
+    suspend fun reply(message: String, memoryContext: String = ""): String
 }
 
 class DemoAIEngine : AIEngine {
-    override suspend fun reply(message: String): String {
+    override suspend fun reply(message: String, memoryContext: String): String {
         val text = message.trim()
         if (text.isBlank()) return "I'm listening. What would you like to do?"
         return when {
@@ -25,7 +25,7 @@ class DemoAIEngine : AIEngine {
 
 /** Adapter for services implementing the OpenAI Chat Completions-compatible API. */
 class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
-    override suspend fun reply(message: String): String =
+    override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             require(config.baseUrl.startsWith("https://")) { "Provider URL must use HTTPS." }
             require(config.model.isNotBlank()) { "Enter a model name in KAIRO settings." }
@@ -43,7 +43,8 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                 val payload = JSONObject()
                     .put("model", config.model)
                     .put("messages", org.json.JSONArray().put(
-                        JSONObject().put("role", "user").put("content", message)
+                        JSONObject().put("role", "system").put("content", "You are KAIRO, a helpful Android assistant. Use saved memories only when relevant.\n" + memoryContext),
+                    JSONObject().put("role", "user").put("content", message)
                     ))
                 connection.outputStream.use {
                     it.write(payload.toString().toByteArray(Charsets.UTF_8))
