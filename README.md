@@ -11,7 +11,7 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 - Adaptive local/cloud routing through KairoBrain.
 - Optional LiteRT-LM local model integration using a separately downloaded Qwen3 0.6B INT4 model.
 - Encrypted Android-Keystore-backed provider credentials and local memories.
-- Persistent encrypted recent conversation history, with a clear-history control.
+- Persistent encrypted recent conversation history, with clear-history and user-initiated plain-text export controls. Exports are saved only to a location chosen through Android's document picker.
 - Recent chat context and relevant saved memories supplied to the model.
 - Task planning prompts for build, debug, plan, compare, and explain requests.
 - Specialist-agent registry for software development, research, planning, analysis, tutoring, translation, requirements, and general assistance. These profiles use the selected AI engine; they are not separate hosted models.
