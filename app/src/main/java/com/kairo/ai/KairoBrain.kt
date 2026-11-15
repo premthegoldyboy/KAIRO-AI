@@ -8,43 +8,32 @@ class KairoBrain(
     private val localReady: Boolean
 ) : AIEngine {
     override suspend fun reply(message: String, memoryContext: String): String {
-        val cloudEngine = providers.takeIf { it.isNotEmpty() }?.let(::FailoverAIEngine)
         val specialist = KairoAgentRouter.route(message)
         val plannedMessage = specialist.instruction + "\n\n" + KairoTaskPlanner.prepare(message)
-        val complexity = KairoTaskPlanner.complexity(message)
-        // Use cloud for demanding multi-step work; keep simple requests local when selected.
-        val cloudFirst = cloudEngine != null && (!preferLocal || complexity >= 2)
 
-        if (cloudFirst) {
-            return try {
-                cloudEngine.reply(plannedMessage, memoryContext)
-            } catch (cloudError: Exception) {
-                if (!localReady) throw cloudError
-                runCatching { localEngine.reply(plannedMessage, memoryContext) }.getOrElse { throw cloudError }
+        // LOCAL is a strict privacy boundary: never silently send its prompt to a cloud provider.
+        if (preferLocal) {
+            check(localReady) {
+                "Local AI is selected, but its model is not downloaded. Download it in Settings or explicitly switch to cloud AI."
             }
-        }
-        if (preferLocal && localReady) {
             return try {
                 localEngine.reply(plannedMessage, memoryContext)
-            } catch (localError: Exception) {
-                if (cloudEngine == null) throw IllegalStateException(
-                    "KAIRO's on-device brain couldn't answer: ${localError.message ?: "unknown error"}"
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                throw IllegalStateException(
+                    "Local AI failed. Your prompt was not sent to a cloud provider. " +
+                        (error.message ?: "Try again or explicitly switch to cloud AI."),
+                    error
                 )
-                cloudEngine.reply(plannedMessage, memoryContext)
             }
         }
-        if (cloudEngine != null) {
-            return try {
-                cloudEngine.reply(plannedMessage, memoryContext)
-            } catch (cloudError: Exception) {
-                if (!localReady) throw cloudError
-                runCatching { localEngine.reply(plannedMessage, memoryContext) }.getOrElse { throw cloudError }
-            }
-        }
-        if (localReady) return localEngine.reply(plannedMessage, memoryContext)
-        throw IllegalStateException(
-            "No AI engine is configured. Add a cloud provider in Settings or download and enable the on-device model."
-        )
+
+        val cloudEngine = providers.takeIf { it.isNotEmpty() }?.let(::FailoverAIEngine)
+            ?: throw IllegalStateException(
+                "No AI engine is configured. Add a cloud provider in Settings or select and download the on-device model."
+            )
+        return cloudEngine.reply(plannedMessage, memoryContext)
     }
 
 }
