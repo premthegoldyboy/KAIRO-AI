@@ -84,6 +84,20 @@ class MemoryStore(context: Context) {
 
     /** Learn only explicit, low-risk facts and preferences stated by the user. */
     fun autoLearn(message: String): String? {
+        val normalized = message.trim()
+        val sensitiveMarkers = listOf(
+            "password", "passcode", "api key", "secret key", "token", "bank account",
+            "credit card", "debit card", "upi id", "otp", "one-time password",
+            "medical", "diagnosis", "medication", "health condition", "religion",
+            "political party", "politics", "sexual", "private address", "home address",
+            "phone number", "email address", "passport", "aadhaar", "pan number"
+        )
+        val looksSensitive = sensitiveMarkers.any { normalized.contains(it, ignoreCase = true) } ||
+            Regex("(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b").containsMatchIn(normalized) ||
+            Regex("\\b\\d{10,}\\b").containsMatchIn(normalized) ||
+            Regex("(?i)https?://").containsMatchIn(normalized)
+        if (looksSensitive) return null
+
         val name = Regex("(?i)^(?:hi[, ]+)?(?:i am|i'm|my name is)\\s+([A-Za-z][A-Za-z'-]{1,35})(?:\\s+and\\b|[.!?]|$)").find(message.trim())
         if (name != null) {
             val value = name.groupValues[1].trim().trimEnd('.')
@@ -107,8 +121,7 @@ class MemoryStore(context: Context) {
         )
         val match = patterns.firstNotNullOfOrNull { it.find(message) } ?: return null
         val value = match.groupValues[1].trim()
-        val blocked = listOf("password", "api key", "address", "phone number", "medical", "diagnosis", "politic", "religion")
-        if (blocked.any { value.contains(it, ignoreCase = true) }) return null
+        if (value.length > 100 || value.any(Char::isDigit)) return null
         val memory = "Preference: $value"
         return if (remember(memory)) memory else null
     }

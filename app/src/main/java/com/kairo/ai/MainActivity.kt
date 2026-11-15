@@ -98,6 +98,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val configStore = remember { ProviderConfigStore(context) }
     val memoryStore = remember { MemoryStore(context) }
+    val conversationStore = remember { ConversationStore(context) }
     var providerConfigs by remember { mutableStateOf(configStore.loadAll()) }
     var providerConfig by remember { mutableStateOf(providerConfigs.firstOrNull()) }
     var localModelReady by remember { mutableStateOf(LocalModelManager.isDownloaded(context)) }
@@ -111,6 +112,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     }
     var showSettings by remember { mutableStateOf(false) }
     var showMemoryManager by remember { mutableStateOf(false) }
+    var showClearChatDialog by remember { mutableStateOf(false) }
     var pendingAppLaunch by remember { mutableStateOf<String?>(null) }
     var memoryItems by remember { mutableStateOf(memoryStore.all()) }
     var providerUrl by remember { mutableStateOf(providerConfig?.baseUrl ?: "") }
@@ -126,9 +128,13 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
     var isThinking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val messages = remember {
-        mutableStateListOf(
-            ChatMessage("KAIRO core initialized. I'm ready when you are.", true)
-        )
+        mutableStateListOf<ChatMessage>().apply {
+            addAll(conversationStore.load().map { ChatMessage(it.text, it.fromKairo) })
+            if (isEmpty()) add(ChatMessage("KAIRO core initialized. I'm ready when you are.", true))
+        }
+    }
+    LaunchedEffect(messages.size) {
+        conversationStore.save(messages.map { ConversationEntry(it.text, it.fromKairo) })
     }
     var input by remember { mutableStateOf("") }
     var listeningError by remember { mutableStateOf("") }
@@ -177,6 +183,9 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     }
                     TextButton(onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }) {
                         Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
+                    }
+                    TextButton(onClick = { showClearChatDialog = true }) {
+                        Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
                     }
                     TextButton(onClick = { showSettings = true }) {
                         Text("⚙ SETTINGS", color = Color(0xFF70E9FF), fontSize = 10.sp)
@@ -312,7 +321,19 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         preferLocal = localAiEnabled,
                                         localReady = localModelReady
                                     )
-                                    val answer = runCatching { kairoBrain.reply(prompt, memoryStore.context(prompt)) }
+                                    val recentConversation = messages.takeLast(8).joinToString("\n") { entry ->
+                                        (if (entry.fromKairo) "KAIRO: " else "User: ") + entry.text.take(1200)
+                                    }
+                                    val assistantContext = buildString {
+                                        val savedMemory = memoryStore.context(prompt)
+                                        if (savedMemory.isNotBlank()) append(savedMemory)
+                                        if (recentConversation.isNotBlank()) {
+                                            if (isNotEmpty()) append("\n\n")
+                                            append("Recent conversation context (most recent last):\n")
+                                            append(recentConversation)
+                                        }
+                                    }
+                                    val answer = runCatching { kairoBrain.reply(prompt, assistantContext) }
                                         .getOrElse { "KAIRO: " + (it.message ?: "Something went wrong. Please try again.") }
                                     messages.add(ChatMessage(answer, true))
                                     onSpeak(answer)
@@ -345,7 +366,8 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("MEMORY", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("KAIRO learns simple preferences automatically and saves anything you explicitly ask it to remember. Memories are encrypted on this device.", fontSize = 11.sp)
+                    Text("KAIRO saves explicit memories and a limited recent chat history. Both are encrypted on this device. Recent chat context may be sent to whichever cloud provider answers your request.", fontSize = 11.sp)
+                    TextButton(onClick = { showClearChatDialog = true; showSettings = false }) { Text("CLEAR CONVERSATION HISTORY", color = Color(0xFFFFB4AB)) }
                     TextButton(onClick = { memoryItems = memoryStore.all(); showSettings = false; showMemoryManager = true }) { Text("MANAGE MEMORIES", color = Color(0xFF70E9FF)) }
                     Text("CLOUD AI", color = Color(0xFF70E9FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("KAIRO tries DeepSeek, Grok, then Claude. DeepSeek and Grok use Chat Completions; Claude uses its native Messages API. Enter each provider's current model ID and API key. Failover does not remove provider quotas or costs.", fontSize = 12.sp)
@@ -500,6 +522,25 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     pendingAppLaunch = null
                     messages.add(ChatMessage("Cancelled. I did not open the app.", true))
                 }) { Text("CANCEL") }
+            }
+        )
+    }
+
+    if (showClearChatDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearChatDialog = false },
+            title = { Text("CLEAR CONVERSATION?") },
+            text = { Text("This deletes KAIRO's locally saved chat history on this device. Saved memories are kept.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    messages.clear()
+                    messages.add(ChatMessage("KAIRO core initialized. I'm ready when you are.", true))
+                    conversationStore.clear()
+                    showClearChatDialog = false
+                }) { Text("CLEAR HISTORY") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearChatDialog = false }) { Text("CANCEL") }
             }
         )
     }

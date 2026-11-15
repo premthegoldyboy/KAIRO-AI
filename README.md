@@ -1,46 +1,63 @@
 # KAIRO — Sovereign Intelligence for Android
 
-KAIRO is a modular Android AI-assistant project. This repository contains the first **v0.1 foundation**.
+KAIRO is a modular Android personal-assistant project. The current repository contains an evolving v0.1 development build with local/cloud orchestration and permission-scoped skills. It is not yet a fully autonomous or always-listening assistant.
 
-## Current milestone
+## Implemented foundation
 
-- Futuristic dark AMOLED-style Compose interface
-- Chat screen with a clearly labelled local demo response engine
-- User-initiated speech recognition (microphone permission requested when needed)
-- Android Text-to-Speech responses using the device's installed voices
-- Provider interface that can later host cloud and offline AI engines
-- GitHub Actions workflow to build and publish a debug APK artifact
+- Dark Compose chat interface, Android speech recognition initiated by the user, and Android text-to-speech.
+- Provider-independent AIEngine interface.
+- Configurable DeepSeek/xAI-compatible Chat Completions and Anthropic Messages adapters.
+- Sequential cloud-provider failover (availability and quotas remain provider-dependent).
+- Adaptive local/cloud routing through KairoBrain.
+- Optional LiteRT-LM local model integration using a separately downloaded Qwen3 0.6B INT4 model.
+- Encrypted Android-Keystore-backed provider credentials and local memories.
+- Persistent encrypted recent conversation history, with a clear-history control.
+- Recent chat context and relevant saved memories supplied to the model.
+- Task planning prompts for build, debug, plan, compare, and explain requests.
+- Deterministic calculator and device date/time tools.
+- App launching only after the user confirms the requested action.
+- Telugu-English command recognition for selected memory skills.
 
-## Important status notes
+## Important limitations
 
-This is an early development build, not a finished autonomous assistant. The current response engine is a local demo; it does **not** connect to a real cloud model yet. Voice input depends on an installed Android speech-recognition service, and available TTS voices depend on the device. The app does not run an always-listening wake-word service.
+- Live web search and news/trend retrieval are not implemented yet. Models cannot be assumed to know current events; KAIRO needs a search/retrieval integration before it can answer live-information questions reliably.
+- Streaming responses are not implemented yet; current provider requests return a complete response.
+- The local model's runtime performance and compatibility must be verified on a physical device.
+- Wake-word / always-listening detection is not implemented.
+- Memory auto-learning is deliberately narrow and should not be treated as a complete semantic memory system.
+- Cloud API keys, usage limits, and possible charges are controlled by each provider. Failover does not provide unlimited or free inference.
+- Recent conversation context and user prompts are sent to the selected cloud provider when cloud inference is used. Local chat history is encrypted on-device; users can clear it from the app.
 
 ## Build
 
-The GitHub Actions workflow runs on pushes to `main` and can also be started manually:
+The GitHub Actions workflow runs on pushes to main and can also be started manually:
 
-1. Open the repository's **Actions** tab.
-2. Select **Build KAIRO Android APK**.
+1. Open the repository's Actions tab.
+2. Select Build KAIRO Android APK.
 3. Open the latest successful run.
-4. Download the `KAIRO-debug-apk` artifact.
+4. Download the KAIRO-debug-apk artifact.
 
-The project uses JDK 17, Gradle 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.2.20 and Android API 36.
+The project uses JDK 17, Gradle 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.0 and Android API 36.
 
 ## Project structure
 
-- `app/` — Android application
-- `AIEngine.kt` — provider abstraction and local demo engine
-- `.github/workflows/android.yml` — automated debug APK build
+- app/ — Android application
+- AIEngine.kt — provider adapters and failover
+- KairoBrain.kt — adaptive local/cloud routing
+- KairoTaskPlanner.kt — task classification and planning prompts
+- KairoSkillRegistry.kt / KairoToolExecutor.kt — supported deterministic skills
+- MemoryStore.kt / ConversationStore.kt — encrypted local memory and chat history
+- .github/workflows/android.yml — automated debug APK build
 
 ## Privacy and permissions
 
-Microphone access is requested only when the user taps the voice-input button. No API key is included in this repository. Add provider credentials only through an appropriate secure configuration in a future integration; never commit secrets.
+Microphone access is requested only when the user taps the voice-input button. Provider credentials and local memory/history use Android Keystore-backed AES-GCM encryption. Never commit API keys. Review the cloud provider's data policies before configuring a key.
 
 ## Roadmap
 
-1. v0.1 — app shell, demo chat, user-initiated voice input and TTS
-2. v0.2 — secure cloud AI provider integration and Telugu/English response handling
-3. v0.3 — persistent conversation memory and settings
-4. Later — optional offline model support, permission-controlled skills and carefully scoped Android integrations
+1. Secure, reliable provider layer with streaming and better failure handling.
+2. Live web research with dated sources and transparent citations.
+3. More robust multilingual understanding and user-controlled memory.
+4. Expanded permissioned Android skills with explicit confirmation for consequential actions.
 
-KAIRO is intended to be free/open-source-first. Third-party AI services and device capabilities may have their own limits or costs.
+KAIRO is intended to be free/open-source-first. Third-party services, model hosting, and device capabilities may have their own limits or costs.

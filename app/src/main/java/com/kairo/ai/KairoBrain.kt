@@ -43,14 +43,4 @@ class KairoBrain(
         return DemoAIEngine().reply(plannedMessage, memoryContext)
     }
 
-    private fun estimateComplexity(message: String): Int {
-        val text = message.lowercase()
-        var score = 0
-        if (listOf("step by step", "plan", "build", "create", "implement", "debug", "fix", "design")
-                .any(text::contains)) score++
-        if (listOf("compare", "analyse", "analyze", "research", "explain why", "architecture", "code", "algorithm")
-                .any(text::contains)) score++
-        if (text.length > 420 || text.count { it == '?' } >= 2) score++
-        return score.coerceAtMost(3)
-    }
 }
