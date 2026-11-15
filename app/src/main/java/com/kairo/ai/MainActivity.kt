@@ -205,6 +205,25 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
         }
     }
 
+    val exportConversationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val export = ChatExportFormatter.format(
+                    messages.map { ConversationEntry(it.text, it.fromKairo) }
+                )
+                val output = context.contentResolver.openOutputStream(uri)
+                    ?: error("The selected location could not be opened.")
+                output.use { it.write(export.toByteArray(Charsets.UTF_8)) }
+            }.onSuccess {
+                screenReadStatus = "Conversation export saved. Check the selected location."
+            }.onFailure { error ->
+                screenReadStatus = "Could not export conversation: " + (error.message ?: "unknown error")
+            }
+        }
+    }
+
     val speechLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -264,6 +283,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }
                     ) {
                         Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
+                    }
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { exportConversationLauncher.launch("KAIRO-conversation.txt") }
+                    ) {
+                        Text("EXPORT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
                     }
                     TextButton(
                         modifier = Modifier.weight(1f),
