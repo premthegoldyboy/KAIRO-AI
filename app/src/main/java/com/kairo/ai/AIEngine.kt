@@ -33,7 +33,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
             require(config.baseUrl.startsWith("https://")) { "Provider URL must use HTTPS." }
             require(config.model.isNotBlank()) { "Enter a model name in KAIRO settings." }
             require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
-            val systemPrompt = "You are KAIRO, a helpful Android assistant. Use saved memories only when relevant.\\n$memoryContext"
+            val systemPrompt = KairoPersonality.systemInstruction(memoryContext)
             val isAnthropic = config.protocol.equals("anthropic", ignoreCase = true)
             val endpoint = if (isAnthropic) config.baseUrl.trimEnd('/') + "/v1/messages"
                 else config.baseUrl.trimEnd('/') + "/chat/completions"
