@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.flow.collect
 
 class KairoRoutingTest {
     @Test fun romanizedTeluguIsDetected() = assertEquals(LangStyle.TELUGU_ENGLISH, KairoLanguage.detect("Nuvvu ela unnav ippudu?"))
@@ -13,25 +14,25 @@ class KairoRoutingTest {
     @Test fun codingIsCloudWork() {
         val p = KairoTaskPlanner.classify("fix this kotlin crash")
         assertEquals(TaskType.CODING, p.type)
-        assertTrue(p.preferCloud)
+        assertFalse(p.needsLiveData)
     }
     @Test fun prefixIsNotTreatedAsFix() {
         val p = KairoTaskPlanner.classify("what is a prefix tree")
         assertEquals(TaskType.SIMPLE, p.type)
-        assertFalse(p.preferCloud)
+        assertFalse(p.needsLiveData)
     }
     @Test fun newsNeedsLiveData() {
         val p = KairoTaskPlanner.classify("latest AI news today")
         assertEquals(TaskType.NEWS, p.type)
         assertTrue(p.needsLiveData)
     }
-    @Test fun translationUsesCloud() = assertTrue(KairoTaskPlanner.classify("translate good morning to telugu").preferCloud)
+    @Test fun translationDoesNotRequireLiveData() = assertFalse(KairoTaskPlanner.classify("translate good morning to telugu").needsLiveData)
     @Test fun wordProblemIsMath() = assertEquals(TaskType.MATH, KairoTaskPlanner.classify("solve 2x+3=7").type)
     @Test fun planningIsDetected() = assertEquals(TaskType.PLANNING, KairoTaskPlanner.classify("plan my week").type)
     @Test fun requirementsRequestsUseDedicatedAgentRoute() {
         val profile = KairoTaskPlanner.classify("write requirements and acceptance criteria for a study app")
         assertEquals(TaskType.REQUIREMENTS, profile.type)
-        assertTrue(profile.preferCloud)
+        assertFalse(profile.needsLiveData)
     }
     @Test fun requirementsAgentAddsStructuredAndTestableInstructions() {
         val prompt = KairoRequirementsAgent.enhance("Build a study planner")
