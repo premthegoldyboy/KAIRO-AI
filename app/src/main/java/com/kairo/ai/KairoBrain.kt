@@ -18,7 +18,7 @@ class KairoBrain(
     override suspend fun reply(message: String, memoryContext: String): String {
         validateProviderRequestSize(message, memoryContext)
         val profile = KairoTaskPlanner.classify(message)
-        val planned = KairoTaskPlanner.prepare(message, profile)
+        val planned = KairoAgentRegistry.prepare(message, profile)
 
         if (preferLocal) {
             check(localReady) {
@@ -55,7 +55,7 @@ class KairoBrain(
     ): Flow<String> = flow {
         validateProviderRequestSize(message, if (preferLocal) localContext else memoryContext)
         val profile = KairoTaskPlanner.classify(message)
-        val planned = KairoTaskPlanner.prepare(message, profile, liveDataAvailable)
+        val planned = KairoAgentRegistry.prepare(message, profile, liveDataAvailable)
 
         if (preferLocal) {
             check(localReady) {
