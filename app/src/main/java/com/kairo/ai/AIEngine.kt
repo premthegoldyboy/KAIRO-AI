@@ -23,7 +23,7 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
             require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
             val systemPrompt = KairoPersonality.systemInstruction(memoryContext)
             val isAnthropic = config.protocol.equals("anthropic", ignoreCase = true)
-            val endpoint = if (isAnthropic) config.baseUrl.trimEnd('/') + "/v1/messages" else config.baseUrl.trimEnd('/') + "/chat/completions"
+            val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, isAnthropic)
             val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = 10_000
