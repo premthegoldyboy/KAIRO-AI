@@ -444,6 +444,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         KairoSkillType.OPEN_APP -> "App Launcher"
                                         KairoSkillType.REMEMBER, KairoSkillType.FORGET, KairoSkillType.RECALL -> "Memory Manager"
                                         KairoSkillType.CALCULATE -> "Offline Calculator"
+                                        KairoSkillType.CONVERT_UNITS -> "Offline Unit Converter"
                                         KairoSkillType.CURRENT_TIME -> "Device Clock"
                                         KairoSkillType.GENERAL -> KairoAgentRegistry.resolve(KairoTaskPlanner.classify(prompt)).displayName
                                     }
