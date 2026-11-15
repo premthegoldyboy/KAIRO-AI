@@ -299,7 +299,12 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         }
                         Box(
                             modifier = Modifier.size(9.dp).background(
-                                if (isThinking) Color(0xFFFFC36B) else Color(0xFF62DDA6),
+                                when {
+                                    isThinking -> Color(0xFFFFC36B)
+                                    localAiEnabled && localModelReady -> Color(0xFF62DDA6)
+                                    !localAiEnabled && providerConfigs.isNotEmpty() -> Color(0xFF62DDA6)
+                                    else -> Color(0xFFFFD27A)
+                                },
                                 CircleShape
                             )
                         )
