@@ -65,7 +65,7 @@ class ProviderConfigStore(context: Context) {
                     }
                 }
             } else {
-                val parts = plain.split('\\n', limit = 3)
+                val parts = plain.split('\n', limit = 3)
                 if (parts.size == 3) listOf(AIProviderConfig(parts[0], parts[1], parts[2])) else emptyList()
             }
         }.getOrDefault(emptyList())
