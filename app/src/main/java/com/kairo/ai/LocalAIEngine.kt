@@ -124,7 +124,7 @@ class LocalAIEngine(context: Context) : AIEngine, AutoCloseable {
             )
         }
         val output = StringBuilder()
-        val prompt = if (memoryContext.isBlank()) message else memoryContext + "\\n\\nUser message: " + message
+        val prompt = if (memoryContext.isBlank()) message else memoryContext + "\n\nUser message: " + message
         checkNotNull(conversation).sendMessageAsync(prompt).collect { chunk ->
             output.append(chunk.toString())
         }
