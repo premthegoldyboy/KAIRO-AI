@@ -7,6 +7,17 @@ import org.junit.Test
 import kotlinx.coroutines.flow.collect
 
 class KairoRoutingTest {
+    @Test fun providerRequestRejectsOversizedPromptAndContext() {
+        try {
+            validateProviderRequestSize("x".repeat(32_001), "")
+            throw AssertionError("Expected oversized prompt to be rejected")
+        } catch (_: IllegalArgumentException) { }
+        try {
+            validateProviderRequestSize("hello", "x".repeat(16_001))
+            throw AssertionError("Expected oversized context to be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun romanizedTeluguIsDetected() = assertEquals(LangStyle.TELUGU_ENGLISH, KairoLanguage.detect("Nuvvu ela unnav ippudu?"))
     @Test fun plainEnglishStaysEnglish() = assertEquals(LangStyle.ENGLISH, KairoLanguage.detect("How are you doing today"))
     @Test fun teluguScriptIsDetected() = assertEquals(LangStyle.TELUGU_SCRIPT, KairoLanguage.detect("నమస్కారం ఎలా ఉన్నారు"))
