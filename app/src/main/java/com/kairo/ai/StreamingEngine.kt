@@ -42,12 +42,43 @@ interface StreamingAIEngine {
 
 /** Server-sent-event adapter for OpenAI-compatible and Anthropic Messages APIs. */
 class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingAIEngine {
+    private companion object {
+        const val MAX_ERROR_BYTES = 1_048_576
+        const val MAX_STREAM_BYTES = 4_194_304
+        const val MAX_STREAM_RESPONSE_BYTES = 1_048_576
+        const val MAX_SSE_LINE_CHARS = 65_536
+    }
+
+    private fun readBounded(input: java.io.InputStream, limit: Int): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size() + count <= limit) { "Provider error response was too large." }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
+
+    private fun readBoundedLine(reader: BufferedReader, limit: Int): String? {
+        val line = StringBuilder()
+        while (true) {
+            val value = reader.read()
+            if (value < 0) return if (line.isEmpty()) null else line.toString()
+            if (value == '\\n'.code) return line.toString().removeSuffix("\\r")
+            require(line.length < limit) { "Provider stream sent an oversized event line." }
+            line.append(value.toChar())
+        }
+    }
+
     override fun stream(history: List<ChatTurn>, memoryContext: String): Flow<String> = flow {
         require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
         require(config.model.isNotBlank()) { "Enter a model name in KAIRO settings." }
         require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
         val turns = ChatTurn.normalize(history)
         require(turns.isNotEmpty()) { "Nothing to send." }
+        validateProviderRequestSize(turns.joinToString("\\n") { it.content }, memoryContext)
 
         val anthropic = config.protocol.equals("anthropic", true)
         val endpoint = ProviderEndpoints.chatCompletions(config.baseUrl, anthropic)
@@ -59,6 +90,7 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
 
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
+            instanceFollowRedirects = false
             connectTimeout = 10_000
             readTimeout = 60_000
             doInput = true
@@ -74,7 +106,7 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
             connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             if (status !in 200..299) {
-                val body = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val body = connection.errorStream?.use { readBounded(it, MAX_ERROR_BYTES).toString(Charsets.UTF_8) }.orEmpty()
                 val detail = runCatching {
                     val json = JSONObject(body)
                     json.optJSONObject("error")?.optString("message")?.takeIf { it.isNotBlank() }
@@ -92,10 +124,14 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
                 throw ProviderException("HTTP $status ($reason)" + (detail?.let { ": ${it.take(160)}" } ?: ""), status)
             }
 
+            var totalStreamBytes = 0
+            var emittedResponseBytes = 0
             BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8)).use { reader ->
                 while (true) {
                     currentCoroutineContext().ensureActive()
-                    val line = reader.readLine() ?: break
+                    val line = readBoundedLine(reader, MAX_SSE_LINE_CHARS) ?: break
+                    totalStreamBytes += line.toByteArray(Charsets.UTF_8).size + 1
+                    require(totalStreamBytes <= MAX_STREAM_BYTES) { "Provider stream exceeded the response size limit." }
                     if (!line.startsWith("data:")) continue
                     val data = line.removePrefix("data:").trim()
                     if (data.isEmpty() || data == "[DONE]") {
@@ -109,7 +145,11 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
                                 val delta = json.optJSONObject("delta")
                                 if (delta?.optString("type") == "text_delta") {
                                     val chunk = delta.optString("text")
-                                    if (chunk.isNotEmpty()) emit(chunk)
+                                    if (chunk.isNotEmpty()) {
+                                        emittedResponseBytes += chunk.toByteArray(Charsets.UTF_8).size
+                                        require(emittedResponseBytes <= MAX_STREAM_RESPONSE_BYTES) { "Provider response was too large." }
+                                        emit(chunk)
+                                    }
                                 }
                             }
                             "error" -> throw ProviderException(
@@ -121,7 +161,11 @@ class StreamingProviderEngine(private val config: AIProviderConfig) : StreamingA
                     } else {
                         val choice = json.optJSONArray("choices")?.optJSONObject(0)
                         val chunk = choice?.optJSONObject("delta")?.optString("content").orEmpty()
-                        if (chunk.isNotEmpty() && chunk != "null") emit(chunk)
+                        if (chunk.isNotEmpty() && chunk != "null") {
+                            emittedResponseBytes += chunk.toByteArray(Charsets.UTF_8).size
+                            require(emittedResponseBytes <= MAX_STREAM_RESPONSE_BYTES) { "Provider response was too large." }
+                            emit(chunk)
+                        }
                         val finish = choice?.optString("finish_reason")
                         if (finish != null && finish != "null" && finish.isNotBlank()) break
                     }
