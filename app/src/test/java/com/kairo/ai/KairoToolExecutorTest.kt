@@ -41,18 +41,39 @@ class KairoToolExecutorTest {
     }
 
     @Test fun incompatibleDimensionsAreRejected() {
-        val result = KairoUnitConverter.convert("5", "km", "kg")
-        assertTrue(result.contains("different things"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("5", "km", "kg")
+        }
     }
 
     @Test fun belowAbsoluteZeroIsRejected() {
-        val result = KairoUnitConverter.convert("-300", "C", "K")
-        assertTrue(result.contains("absolute zero"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("-300", "C", "K")
+        }
     }
 
     @Test fun unsupportedUnitsAreRejected() {
-        val result = KairoUnitConverter.convert("5", "parsec", "km")
-        assertTrue(result.contains("unsupported source unit"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("5", "parsec", "km")
+        }
+    }
+
+    @Test fun speedConversionAcceptsSlashUnits() {
+        assertEquals("100 km/h = 27.777778 m/s", KairoUnitConverter.convert("100", "km/h", "m/s"))
+    }
+
+    @Test fun areaConversionWorks() {
+        assertEquals("1 km2 = 1000000 m2", KairoUnitConverter.convert("1", "km2", "m2"))
+    }
+
+    @Test fun decimalAndBinaryDataUnitsRemainDistinct() {
+        assertEquals("1 MB = 0.953674 MiB", KairoUnitConverter.convert("1", "MB", "MiB"))
+    }
+
+    @Test fun speedCannotBeConvertedToLength() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("60", "mph", "km")
+        }
     }
 
 }
