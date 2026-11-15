@@ -18,7 +18,7 @@ KAIRO is a modular Android personal-assistant project. The current repository co
 - Deterministic calculator and device date/time tools.
 - App launching only after the user confirms the requested action.
 - Telugu-English command recognition for selected memory skills.
-- User-selected TXT, Markdown, CSV, JSON, XML, and source-code text import, bounded to 96 KB and shown in the composer for review before sending.
+- User-selected TXT, Markdown, CSV, JSON, XML, and source-code text import, bounded to 24 KB and shown in the composer for review before sending.
 
 ## Important limitations
 
