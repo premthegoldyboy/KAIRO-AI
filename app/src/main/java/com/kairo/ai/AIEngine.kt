@@ -18,7 +18,7 @@ interface AIEngine {
 class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
     override suspend fun reply(message: String, memoryContext: String): String =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            require(config.baseUrl.startsWith("https://")) { "Provider URL must use HTTPS." }
+            require(config.baseUrl.startsWith("https://", ignoreCase = true)) { "Provider URL must use HTTPS." }
             require(config.model.isNotBlank()) { "Enter a model name in KAIRO settings." }
             require(config.apiKey.isNotBlank()) { "Add your provider API key in KAIRO settings." }
             val systemPrompt = KairoPersonality.systemInstruction(memoryContext)
@@ -88,7 +88,7 @@ class FailoverAIEngine(private val providers: List<AIProviderConfig>) : AIEngine
                 throw cancel
             } catch (error: Exception) {
                 val reason = error.message?.take(120) ?: "Unknown provider error"
-                failures += "${provider.model}: $reason"
+                failures += "${ProviderEndpoints.providerLabel(provider.baseUrl)} (${provider.model}): $reason"
                 if (index == providers.lastIndex) {
                     throw IllegalStateException(
                         "All ${providers.size} configured AI provider(s) are unavailable. " +
