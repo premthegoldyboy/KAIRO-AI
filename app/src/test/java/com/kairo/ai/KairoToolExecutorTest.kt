@@ -29,4 +29,33 @@ class KairoToolExecutorTest {
     @Test fun malformedInputReturnsHelpfulError() {
         assertTrue(calculate("2+*3").startsWith("I couldn't calculate that:"))
     }
+    @Test fun commonLengthConversionWorksOffline() {
+        val request = KairoSkillRegistry.detect("convert 5 km to miles")
+        assertEquals(KairoSkillType.CONVERT_UNITS, request.type)
+        assertEquals("5 km = 3.106856 mi", KairoToolExecutor.execute(request))
+    }
+
+    @Test fun temperatureConversionUsesCorrectOffset() {
+        val result = KairoUnitConverter.convert("32", "F", "C")
+        assertEquals("32 F = 0 °C", result)
+    }
+
+    @Test fun incompatibleDimensionsAreRejected() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("5", "km", "kg")
+        }
+    }
+
+    @Test fun belowAbsoluteZeroIsRejected() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("-300", "C", "K")
+        }
+    }
+
+    @Test fun unsupportedUnitsAreRejected() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            KairoUnitConverter.convert("5", "parsec", "km")
+        }
+    }
+
 }
