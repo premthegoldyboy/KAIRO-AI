@@ -22,12 +22,14 @@ class KairoBrainTest {
         assertEquals(1, local.calls)
     }
 
-    @Test fun usesAvailableLocalEngineWhenNoCloudProviderExists() = runBlocking {
-        val local = FakeEngine("local only response")
+    @Test fun downloadedLocalModelIsNotActivatedWithoutExplicitSelection() = runBlocking {
+        val local = FakeEngine("must not run")
         val brain = KairoBrain(local, emptyList(), preferLocal = false, localReady = true)
 
-        assertEquals("local only response", brain.reply("hello", ""))
-        assertEquals(1, local.calls)
+        val error = runCatching { brain.reply("hello", "") }.exceptionOrNull()
+        assertTrue(error is IllegalStateException)
+        assertTrue(error?.message.orEmpty().contains("No AI engine is configured"))
+        assertEquals(0, local.calls)
     }
 
     @Test fun refusesToInventDemoAnswerWhenNoEngineIsConfigured() = runBlocking {
