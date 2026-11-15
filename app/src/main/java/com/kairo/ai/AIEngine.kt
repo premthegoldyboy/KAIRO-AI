@@ -10,18 +10,6 @@ interface AIEngine {
     suspend fun reply(message: String, memoryContext: String = ""): String
 }
 
-class DemoAIEngine : AIEngine {
-    override suspend fun reply(message: String, memoryContext: String): String {
-        val text = message.trim()
-        if (text.isBlank()) return "I'm listening. What would you like to do?"
-        return when {
-            text.contains("hello", true) || text.contains("hi", true) ->
-                "Hello! KAIRO systems are online. How can I help?"
-            text.contains("namaste", true) -> "Namaste! Ela unnaru? I'm ready to help."
-            else -> "I received: “$text”. Demo mode is active. Add a compatible AI provider in Settings to enable live AI."
-        }
-    }
-}
 
 /**
  * Provider adapter. DeepSeek and xAI use Chat Completions; Anthropic uses its
