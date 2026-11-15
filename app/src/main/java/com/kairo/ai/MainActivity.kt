@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -52,6 +53,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -396,6 +402,11 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                                         }
                                         if (responseBuffer.isBlank()) {
                                             messages[responseSlot] = ChatMessage("The AI provider returned an empty response.", true)
+                                        } else if (liveResults.isNotEmpty()) {
+                                            messages[responseSlot] = ChatMessage(
+                                                ResearchPresentation.appendSources(responseBuffer.toString(), liveResults),
+                                                true
+                                            )
                                         }
                                     } catch (cancel: CancellationException) {
                                         throw cancel
@@ -721,7 +732,33 @@ private fun ChatBubble(message: ChatMessage) {
                 letterSpacing = 1.5.sp
             )
             Spacer(Modifier.height(5.dp))
-            Text(message.text, color = Color(0xFFEAF2FF), fontSize = 14.sp)
+            val uriHandler = LocalUriHandler.current
+            val linkedText = remember(message.text) {
+                buildAnnotatedString {
+                    val pattern = Regex("https://[^\\s)\\]}>]+")
+                    var cursor = 0
+                    pattern.findAll(message.text).forEach { match ->
+                        append(message.text.substring(cursor, match.range.first))
+                        val url = match.value.trimEnd('.', ',', ';')
+                        pushStringAnnotation(tag = "URL", annotation = url)
+                        withStyle(SpanStyle(color = Color(0xFF70E9FF), textDecoration = TextDecoration.Underline)) {
+                            append(match.value)
+                        }
+                        pop()
+                        cursor = match.range.last + 1
+                    }
+                    append(message.text.substring(cursor))
+                }
+            }
+            ClickableText(
+                text = linkedText,
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFEAF2FF), fontSize = 14.sp),
+                onClick = { offset ->
+                    linkedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
+                        runCatching { uriHandler.openUri(it.item) }
+                    }
+                }
+            )
         }
     }
 }

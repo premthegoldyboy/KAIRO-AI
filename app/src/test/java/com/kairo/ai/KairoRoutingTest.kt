@@ -101,3 +101,31 @@ class KairoBrainConfigurationTest {
         }
     }
 }
+
+
+class ResearchPresentationTest {
+    @Test fun rejectsNonHttpsAndCredentialUrls() {
+        assertEquals(null, ResearchPresentation.safeHttpsUrl("http://example.com"))
+        assertEquals(null, ResearchPresentation.safeHttpsUrl("https://user:pass@example.com/path"))
+        assertEquals(null, ResearchPresentation.safeHttpsUrl("javascript:alert(1)"))
+    }
+
+    @Test fun acceptsNormalHttpsSource() {
+        assertEquals("https://example.com/news?id=2", ResearchPresentation.safeHttpsUrl("https://example.com/news?id=2"))
+    }
+
+    @Test fun sourceListIsAppendedDeterministically() {
+        val answer = ResearchPresentation.appendSources(
+            "A short answer.",
+            listOf(ResearchResult("Example report", "https://example.com/report", "Summary"))
+        )
+        assertTrue(answer.startsWith("A short answer."))
+        assertTrue(answer.contains("Sources checked by KAIRO"))
+        assertTrue(answer.contains("[1] Example report"))
+        assertTrue(answer.contains("https://example.com/report"))
+    }
+
+    @Test fun noSourcesDoesNotChangeAnswer() {
+        assertEquals("Answer", ResearchPresentation.appendSources("Answer", emptyList()))
+    }
+}
