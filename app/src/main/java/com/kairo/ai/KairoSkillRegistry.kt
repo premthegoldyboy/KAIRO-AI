@@ -80,7 +80,7 @@ object KairoSkillRegistry {
             val expression = it.groupValues[1].trim().removeSuffix("?").trim()
             if (expression.isNotEmpty() && arithmeticOnly.matches(expression)) return KairoSkillRequest(KairoSkillType.CALCULATE, expression)
         }
-        if (arithmeticOnly.matches(text) && text.any { it in "+-*/%" } && text.any(Char::isDigit)) {
+        if (arithmeticOnly.matches(text) && text.any { it in "+-*/%^" } && text.any(Char::isDigit)) {
             return KairoSkillRequest(KairoSkillType.CALCULATE, text)
         }
         if (normalized in timePhrases) return KairoSkillRequest(KairoSkillType.CURRENT_TIME)
