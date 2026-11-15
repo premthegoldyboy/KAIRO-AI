@@ -209,30 +209,47 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                     ) { Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp) }
                 }
 
-                Spacer(Modifier.height(8.dp))
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier.size(104.dp).background(
-                            Brush.radialGradient(listOf(Color(0x5535DFFF), Color(0x222D6D9B), Color.Transparent)),
-                            CircleShape
-                        ),
-                        contentAlignment = Alignment.Center
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF101D30),
+                    shape = RoundedCornerShape(22.dp),
+                    tonalElevation = 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Box(
-                            Modifier.size(68.dp).background(
-                                Brush.linearGradient(listOf(Color(0xFF164E78), Color(0xFF10172D))),
-                                CircleShape
+                            modifier = Modifier.size(46.dp).background(
+                                Brush.linearGradient(listOf(Color(0xFF1A7895), Color(0xFF263A69))),
+                                RoundedCornerShape(15.dp)
                             ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("K", color = Color(0xFF8AF0FF), fontSize = 35.sp, fontWeight = FontWeight.Light)
+                            Text("K", color = Color(0xFFE4FBFF), fontSize = 25.sp, fontWeight = FontWeight.Black)
                         }
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("YOUR AI WORKSPACE", color = Color(0xFFEAF5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text(
+                                if (localAiEnabled && localModelReady) "ON-DEVICE MODEL • READY"
+                                else if (providerConfigs.isNotEmpty()) "CLOUD PROVIDER • CONFIGURED"
+                                else "SET UP AN AI PROVIDER TO BEGIN",
+                                color = if ((localAiEnabled && localModelReady) || providerConfigs.isNotEmpty()) Color(0xFF73E6B0) else Color(0xFFFFD27A),
+                                fontSize = 10.sp,
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.size(9.dp).background(
+                                if (isThinking) Color(0xFFFFC36B) else Color(0xFF62DDA6),
+                                CircleShape
+                            )
+                        )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text("YOUR PERSONAL AI", color = Color(0xFF9FB2D0), fontSize = 10.sp, letterSpacing = 2.sp)
-                Spacer(Modifier.height(6.dp))
-
+                Spacer(Modifier.height(12.dp))
                 LazyColumn(
                     state = chatListState,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -622,22 +639,35 @@ private fun ChatBubble(message: ChatMessage) {
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.88f)
+                .fillMaxWidth(if (message.fromKairo) 0.94f else 0.88f)
                 .background(
-                    if (message.fromKairo) Color(0xFF14263A) else Color(0xFF123D55),
-                    RoundedCornerShape(16.dp)
+                    if (message.fromKairo) Color(0xFF111F32) else Color(0xFF16445C),
+                    RoundedCornerShape(
+                        topStart = 20.dp,
+                        topEnd = 20.dp,
+                        bottomEnd = if (message.fromKairo) 20.dp else 6.dp,
+                        bottomStart = if (message.fromKairo) 6.dp else 20.dp
+                    )
                 )
-                .padding(13.dp)
+                .padding(horizontal = 15.dp, vertical = 13.dp)
         ) {
-            Text(
-                if (message.fromKairo) "KAIRO" else "YOU",
-                color = if (message.fromKairo) Color(0xFF6FE5FF) else Color(0xFF9AD8FF),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp
-            )
-            Spacer(Modifier.height(5.dp))
-            Text(message.text, color = Color(0xFFEAF2FF), fontSize = 14.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Box(
+                    Modifier.size(7.dp).background(
+                        if (message.fromKairo) Color(0xFF65DFF5) else Color(0xFF9AD8FF),
+                        CircleShape
+                    )
+                )
+                Text(
+                    if (message.fromKairo) "KAIRO" else "YOU",
+                    color = if (message.fromKairo) Color(0xFF75E5F7) else Color(0xFFAADFFF),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.4.sp
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(message.text, color = Color(0xFFEAF2FF), fontSize = 14.sp, lineHeight = 21.sp)
         }
     }
 }
