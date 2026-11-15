@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -173,48 +174,59 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .background(Brush.verticalGradient(listOf(Color(0xFF101B31), Color(0xFF070B14))))
-                    .padding(18.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("K A I R O", color = Color(0xFF70E9FF), fontSize = 25.sp, fontWeight = FontWeight.Black)
-                        Text("SOVEREIGN INTELLIGENCE", color = Color(0xFF8195B5), fontSize = 10.sp, letterSpacing = 2.sp)
-                    }
-                    TextButton(onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }) {
-                        Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp)
-                    }
-                    TextButton(onClick = { showClearChatDialog = true }) {
-                        Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp)
+                        Text("K A I R O", color = Color(0xFF70E9FF), fontSize = 24.sp, fontWeight = FontWeight.Black)
+                        Text("SOVEREIGN INTELLIGENCE", color = Color(0xFF8195B5), fontSize = 9.sp, letterSpacing = 1.5.sp)
                     }
                     TextButton(onClick = { showSettings = true }) {
                         Text("⚙ SETTINGS", color = Color(0xFF70E9FF), fontSize = 10.sp)
                     }
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { memoryItems = memoryStore.all(); showMemoryManager = true }
+                    ) { Text("🧠 MEMORY", color = Color(0xFF70E9FF), fontSize = 10.sp) }
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { showClearChatDialog = true }
+                    ) { Text("CLEAR CHAT", color = Color(0xFF9FB2D0), fontSize = 10.sp) }
+                }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Box(
-                        Modifier.size(142.dp).background(
+                        Modifier.size(104.dp).background(
                             Brush.radialGradient(listOf(Color(0x5535DFFF), Color(0x222D6D9B), Color.Transparent)),
                             CircleShape
                         ),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
-                            Modifier.size(88.dp).background(
+                            Modifier.size(68.dp).background(
                                 Brush.linearGradient(listOf(Color(0xFF164E78), Color(0xFF10172D))),
                                 CircleShape
                             ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("K", color = Color(0xFF8AF0FF), fontSize = 43.sp, fontWeight = FontWeight.Light)
+                            Text("K", color = Color(0xFF8AF0FF), fontSize = 35.sp, fontWeight = FontWeight.Light)
                         }
                     }
                 }
-                Spacer(Modifier.height(18.dp))
-                Text("YOUR PERSONAL AI", color = Color(0xFF9FB2D0), fontSize = 11.sp, letterSpacing = 2.sp)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
+                Text("YOUR PERSONAL AI", color = Color(0xFF9FB2D0), fontSize = 10.sp, letterSpacing = 2.sp)
+                Spacer(Modifier.height(6.dp))
 
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -259,6 +271,7 @@ private fun KairoApp(onSpeak: (String) -> Unit) {
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF243D59))
                     ) { Text("🎙", fontSize = 16.sp) }
                     Button(
+                        enabled = !isThinking && input.isNotBlank(),
                         onClick = {
                             val prompt = input.trim()
                             if (prompt.isNotEmpty()) {
