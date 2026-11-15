@@ -80,8 +80,20 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                         val json = JSONObject(body)
                         json.optJSONObject("error")?.optString("message") ?: json.optString("message")
                     }.getOrNull()
-                    throw IllegalStateException(detail?.takeIf { it.isNotBlank() }
-                        ?: "Provider request failed (HTTP $status).")
+                    val reason = when (status) {
+                        401, 403 -> "API key rejected"
+                        402 -> "provider balance or credit is insufficient"
+                        404 -> "model or endpoint not found"
+                        408 -> "request timed out"
+                        429 -> "rate limit or quota reached"
+                        in 500..599 -> "provider service error"
+                        else -> "request failed"
+                    }
+                    throw ProviderException(
+                        "HTTP $status ($reason)" +
+                            (detail?.takeIf { it.isNotBlank() }?.let { ": ${it.take(160)}" } ?: ""),
+                        status
+                    )
                 }
                 val answer = if (isAnthropic) {
                     val blocks = JSONObject(body).optJSONArray("content")
@@ -91,7 +103,8 @@ class OpenAICompatibleEngine(private val config: AIProviderConfig) : AIEngine {
                     }.joinToString("\n")
                 } else JSONObject(body).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content").orEmpty()
-                answer.trim().takeIf { it.isNotBlank() } ?: "The AI provider returned an empty response."
+                answer.trim().takeIf { it.isNotBlank() }
+                    ?: throw ProviderException("Provider returned an empty response.")
             } finally { connection.disconnect() }
         }
 }
@@ -104,22 +117,23 @@ class FailoverAIEngine(private val providers: List<AIProviderConfig>) : AIEngine
     override suspend fun reply(message: String, memoryContext: String): String {
         if (providers.isEmpty()) throw IllegalStateException("No cloud AI providers are configured.")
         val failures = mutableListOf<String>()
-        for ((index, provider) in providers.withIndex()) {
+        val routedProviders = ProviderRouter.order(providers)
+        for (provider in routedProviders) {
             try {
-                return OpenAICompatibleEngine(provider).reply(message, memoryContext)
+                val answer = OpenAICompatibleEngine(provider).reply(message, memoryContext)
+                ProviderRouter.recordSuccess(provider)
+                return answer
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) {
-                val reason = error.message?.take(120) ?: "Unknown provider error"
+                ProviderRouter.recordFailure(provider, error)
+                val reason = error.message?.take(160) ?: "Unknown provider error"
                 failures += "${ProviderEndpoints.providerLabel(provider.baseUrl)} (${provider.model}): $reason"
-                if (index == providers.lastIndex) {
-                    throw IllegalStateException(
-                        "All ${providers.size} configured AI provider(s) are unavailable. " +
-                            failures.joinToString(" | ")
-                    )
-                }
             }
         }
-        throw IllegalStateException("No AI provider could answer.")
+        throw IllegalStateException(
+            "All ${providers.size} configured AI provider(s) are unavailable. " +
+                failures.joinToString(" | ")
+        )
     }
 }
